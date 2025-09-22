@@ -23,6 +23,12 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   const [pin, setPin] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{sender: string, message: string, time: string}>>([]);
+  const [currentMessage, setCurrentMessage] = useState('');
+  const [matchedUser, setMatchedUser] = useState('');
   const { toast } = useToast();
 
   // Mock user data
@@ -58,9 +64,15 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     });
 
     setTimeout(() => {
+      setMatchedUser('John D.');
+      setShowChat(true);
+      setChatMessages([
+        {sender: 'Bot', message: `Match found! John D. wants to deposit $${amount}. You can start chatting now.`, time: new Date().toLocaleTimeString()},
+        {sender: 'John D.', message: 'Hi! I have the cash ready for deposit. Where shall we meet?', time: new Date().toLocaleTimeString()}
+      ]);
       toast({
         title: "Match Found!",
-        description: "Connected with John D. who wants to deposit the same amount. Check your messages.",
+        description: "Connected with John D. Chat window opened.",
       });
     }, 3000);
 
@@ -84,9 +96,15 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     });
 
     setTimeout(() => {
+      setMatchedUser('Sarah M.');
+      setShowChat(true);
+      setChatMessages([
+        {sender: 'Bot', message: `Match found! Sarah M. wants to withdraw $${amount}. You can start chatting now.`, time: new Date().toLocaleTimeString()},
+        {sender: 'Sarah M.', message: 'Hello! I need to withdraw this amount. Can we meet at the nearest ATM?', time: new Date().toLocaleTimeString()}
+      ]);
       toast({
         title: "Match Found!",
-        description: "Connected with Sarah M. who wants to withdraw the same amount. Check your messages.",
+        description: "Connected with Sarah M. Chat window opened.",
       });
     }, 3000);
 
@@ -113,6 +131,58 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     setPin('');
   };
 
+  const handleAddAccount = () => {
+    if (!accountNumber || !bankName) {
+      toast({
+        title: "Fields Required",
+        description: "Please enter both account number and bank name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Account Added Successfully",
+      description: `${bankName} account ending in ${accountNumber.slice(-4)} has been linked.`,
+    });
+
+    setActiveModal(null);
+    setAccountNumber('');
+    setBankName('');
+  };
+
+  const sendMessage = () => {
+    if (!currentMessage.trim()) return;
+    
+    const newMessage = {
+      sender: 'You',
+      message: currentMessage,
+      time: new Date().toLocaleTimeString()
+    };
+    
+    setChatMessages(prev => [...prev, newMessage]);
+    setCurrentMessage('');
+
+    // Simulate reply from matched user
+    setTimeout(() => {
+      const replies = [
+        "Sounds good! I'll be there in 10 minutes.",
+        "Perfect! Let me know when you arrive.",
+        "Great! I'm already at the location.",
+        "Okay, I'll bring the exact amount.",
+        "Sure! See you there."
+      ];
+      
+      const reply = {
+        sender: matchedUser,
+        message: replies[Math.floor(Math.random() * replies.length)],
+        time: new Date().toLocaleTimeString()
+      };
+      
+      setChatMessages(prev => [...prev, reply]);
+    }, 1500);
+  };
+
   const renderModal = () => {
     if (!activeModal) return null;
 
@@ -125,10 +195,12 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
               {activeModal === 'deposit' && <ArrowUpRight className="w-5 h-5" />}
               {activeModal === 'balance' && <Shield className="w-5 h-5" />}
               {activeModal === 'history' && <History className="w-5 h-5" />}
+              {activeModal === 'addAccount' && <Plus className="w-5 h-5" />}
               {activeModal === 'withdrawal' && 'Withdrawal'}
               {activeModal === 'deposit' && 'Deposit'}
               {activeModal === 'balance' && 'Check Balance'}
               {activeModal === 'history' && 'Transaction History'}
+              {activeModal === 'addAccount' && 'Add Account'}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -214,6 +286,39 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
                 </Button>
               </>
             )}
+
+            {activeModal === 'addAccount' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="bankName">Bank Name</Label>
+                  <Input
+                    id="bankName"
+                    type="text"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    placeholder="Enter bank name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accountNumber">Account Number</Label>
+                  <Input
+                    id="accountNumber"
+                    type="text"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    placeholder="Enter account number"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleAddAccount} className="flex-1">
+                    Add Account
+                  </Button>
+                  <Button variant="outline" onClick={() => setActiveModal(null)}>
+                    Cancel
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -288,7 +393,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-medium transition-smooth cursor-pointer">
+          <Card className="hover:shadow-medium transition-smooth cursor-pointer" onClick={() => setActiveModal('addAccount')}>
             <CardHeader className="text-center">
               <div className="mx-auto w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mb-2">
                 <Plus className="w-6 h-6 text-accent-foreground" />
@@ -323,6 +428,55 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       </div>
 
       {renderModal()}
+
+      {/* Chat Window */}
+      {showChat && (
+        <div className="fixed bottom-4 right-4 w-80 h-96 bg-background border rounded-lg shadow-lg z-50 flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b">
+            <h3 className="font-semibold">Chat with {matchedUser}</h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setShowChat(false)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              ×
+            </Button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {chatMessages.map((msg, index) => (
+              <div key={index} className={`flex ${msg.sender === 'You' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[70%] p-3 rounded-lg ${
+                  msg.sender === 'You' 
+                    ? 'bg-primary text-primary-foreground' 
+                    : msg.sender === 'Bot'
+                    ? 'bg-accent text-accent-foreground'
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  <p className="text-sm">{msg.message}</p>
+                  <p className="text-xs opacity-70 mt-1">{msg.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="p-4 border-t">
+            <div className="flex gap-2">
+              <Input
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
+                placeholder="Type a message..."
+                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                className="flex-1"
+              />
+              <Button onClick={sendMessage} size="sm">
+                Send
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
