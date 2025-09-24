@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,8 +12,11 @@ import {
   LogOut, 
   Plus,
   Bot,
-  Shield
+  Shield,
+  MapPin,
+  X
 } from 'lucide-react';
+import { Loader } from '@googlemaps/js-api-loader';
 
 interface ATMDashboardProps {
   onLogout: () => void;
@@ -26,11 +29,14 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [accountNumber, setAccountNumber] = useState('');
   const [bankName, setBankName] = useState('');
   const [showChat, setShowChat] = useState(false);
-  const [chatMessages, setChatMessages] = useState<Array<{sender: string, message: string, time: string}>>([]);
+  const [chatMessages, setChatMessages] = useState<Array<{sender: string, message: string, time: string, location?: {lat: number, lng: number, address: string}}>>([]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [matchedUser, setMatchedUser] = useState('');
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [matchedUserLocation, setMatchedUserLocation] = useState<{lat: number, lng: number, address: string} | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const [mapLocation, setMapLocation] = useState<{lat: number, lng: number, address: string} | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   // Mock user data
@@ -110,7 +116,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       setShowChat(true);
       setChatMessages([
         {sender: 'Bot', message: `Match found! John D. wants to deposit $${amount}.`, time: new Date().toLocaleTimeString()},
-        {sender: 'Bot', message: `📍 John D.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString()},
+        {sender: 'Bot', message: `📍 John D.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString(), location: mockLocation},
         {sender: 'Bot', message: `📍 Your location has been shared with John D.`, time: new Date().toLocaleTimeString()},
         {sender: 'John D.', message: 'Hi! I have the cash ready for deposit. I can see your location. Shall we meet?', time: new Date().toLocaleTimeString()}
       ]);
@@ -149,7 +155,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       setShowChat(true);
       setChatMessages([
         {sender: 'Bot', message: `Match found! Sarah M. wants to withdraw $${amount}.`, time: new Date().toLocaleTimeString()},
-        {sender: 'Bot', message: `📍 Sarah M.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString()},
+        {sender: 'Bot', message: `📍 Sarah M.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString(), location: mockLocation},
         {sender: 'Bot', message: `📍 Your location has been shared with Sarah M.`, time: new Date().toLocaleTimeString()},
         {sender: 'Sarah M.', message: 'Hello! I need to withdraw this amount. I can see your location. Can we meet at the nearest ATM?', time: new Date().toLocaleTimeString()}
       ]);
@@ -248,6 +254,73 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       
       setChatMessages(prev => [...prev, reply]);
     }, 1500);
+  };
+
+  const handleLocationClick = (location: {lat: number, lng: number, address: string}) => {
+    setMapLocation(location);
+    setShowMap(true);
+  };
+
+  const initializeMap = async () => {
+    if (!mapRef.current || !mapLocation) return;
+
+    const loader = new Loader({
+      apiKey: "YOUR_GOOGLE_MAPS_API_KEY", // Replace with your actual API key
+      version: "weekly",
+    });
+
+    try {
+      const { Map } = await loader.importLibrary("maps");
+      const { AdvancedMarkerElement } = await loader.importLibrary("marker");
+
+      const map = new Map(mapRef.current, {
+        center: { lat: mapLocation.lat, lng: mapLocation.lng },
+        zoom: 15,
+        mapId: "DEMO_MAP_ID",
+      });
+
+      new AdvancedMarkerElement({
+        map: map,
+        position: { lat: mapLocation.lat, lng: mapLocation.lng },
+        title: mapLocation.address,
+      });
+    } catch (error) {
+      console.error('Error loading Google Maps:', error);
+      toast({
+        title: "Map Error",
+        description: "Unable to load Google Maps. Please check your internet connection.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (showMap && mapLocation) {
+      initializeMap();
+    }
+  }, [showMap, mapLocation]);
+
+  const renderMap = () => {
+    if (!showMap) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <Card className="w-full max-w-2xl h-96">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="w-5 h-5" />
+              Location: {mapLocation?.address}
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => setShowMap(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0 flex-1">
+            <div ref={mapRef} className="w-full h-64 rounded-b-lg" />
+          </CardContent>
+        </Card>
+      </div>
+    );
   };
 
   const renderModal = () => {
@@ -495,6 +568,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       </div>
 
       {renderModal()}
+      {renderMap()}
 
       {/* Chat Window */}
       {showChat && (
@@ -514,16 +588,27 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {chatMessages.map((msg, index) => (
               <div key={index} className={`flex ${msg.sender === 'You' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[70%] p-3 rounded-lg ${
-                  msg.sender === 'You' 
-                    ? 'bg-primary text-primary-foreground' 
-                    : msg.sender === 'Bot'
-                    ? 'bg-accent text-accent-foreground'
-                    : 'bg-muted text-muted-foreground'
-                }`}>
-                  <p className="text-sm">{msg.message}</p>
-                  <p className="text-xs opacity-70 mt-1">{msg.time}</p>
-                </div>
+                 <div className={`max-w-[70%] p-3 rounded-lg ${
+                   msg.sender === 'You' 
+                     ? 'bg-primary text-primary-foreground' 
+                     : msg.sender === 'Bot'
+                     ? 'bg-accent text-accent-foreground'
+                     : 'bg-muted text-muted-foreground'
+                 }`}>
+                   <p className="text-sm">
+                     {msg.location && msg.message.includes('📍') ? (
+                       <button 
+                         onClick={() => handleLocationClick(msg.location!)}
+                         className="text-blue-500 hover:text-blue-700 underline cursor-pointer"
+                       >
+                         {msg.message}
+                       </button>
+                     ) : (
+                       msg.message
+                     )}
+                   </p>
+                   <p className="text-xs opacity-70 mt-1">{msg.time}</p>
+                 </div>
               </div>
             ))}
           </div>
