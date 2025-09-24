@@ -29,6 +29,8 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [chatMessages, setChatMessages] = useState<Array<{sender: string, message: string, time: string}>>([]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [matchedUser, setMatchedUser] = useState('');
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [matchedUserLocation, setMatchedUserLocation] = useState<{lat: number, lng: number, address: string} | null>(null);
   const { toast } = useToast();
 
   // Mock user data
@@ -39,7 +41,42 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     { id: 3, type: 'deposit', amount: 2000, date: '2024-01-13', status: 'completed' },
   ];
 
-  const handleWithdrawal = () => {
+  const requestLocation = async () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: "Location Not Supported",
+        description: "Your browser doesn't support location services.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return new Promise<boolean>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          toast({
+            title: "Location Enabled",
+            description: "Your location has been shared for matching.",
+          });
+          resolve(true);
+        },
+        (error) => {
+          toast({
+            title: "Location Access Denied",
+            description: "Please enable location access to find nearby matches.",
+            variant: "destructive",
+          });
+          resolve(false);
+        }
+      );
+    });
+  };
+
+  const handleWithdrawal = async () => {
     if (!amount) {
       toast({
         title: "Amount Required",
@@ -58,21 +95,28 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       return;
     }
 
+    const locationEnabled = await requestLocation();
+    if (!locationEnabled) return;
+
     toast({
       title: "🤖 Bot Searching",
       description: `Looking for users within 5km who want to deposit $${amount}...`,
     });
 
     setTimeout(() => {
+      const mockLocation = { lat: 40.7128, lng: -74.0060, address: "123 Main St, New York, NY" };
       setMatchedUser('John D.');
+      setMatchedUserLocation(mockLocation);
       setShowChat(true);
       setChatMessages([
-        {sender: 'Bot', message: `Match found! John D. wants to deposit $${amount}. You can start chatting now.`, time: new Date().toLocaleTimeString()},
-        {sender: 'John D.', message: 'Hi! I have the cash ready for deposit. Where shall we meet?', time: new Date().toLocaleTimeString()}
+        {sender: 'Bot', message: `Match found! John D. wants to deposit $${amount}.`, time: new Date().toLocaleTimeString()},
+        {sender: 'Bot', message: `📍 John D.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString()},
+        {sender: 'Bot', message: `📍 Your location has been shared with John D.`, time: new Date().toLocaleTimeString()},
+        {sender: 'John D.', message: 'Hi! I have the cash ready for deposit. I can see your location. Shall we meet?', time: new Date().toLocaleTimeString()}
       ]);
       toast({
         title: "Match Found!",
-        description: "Connected with John D. Chat window opened.",
+        description: "Connected with John D. Locations shared!",
       });
     }, 3000);
 
@@ -80,7 +124,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     setAmount('');
   };
 
-  const handleDeposit = () => {
+  const handleDeposit = async () => {
     if (!amount) {
       toast({
         title: "Amount Required",
@@ -90,21 +134,28 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       return;
     }
 
+    const locationEnabled = await requestLocation();
+    if (!locationEnabled) return;
+
     toast({
       title: "🤖 Bot Searching",
       description: `Looking for users within 5km who want to withdraw $${amount}...`,
     });
 
     setTimeout(() => {
+      const mockLocation = { lat: 40.7589, lng: -73.9851, address: "456 Broadway, New York, NY" };
       setMatchedUser('Sarah M.');
+      setMatchedUserLocation(mockLocation);
       setShowChat(true);
       setChatMessages([
-        {sender: 'Bot', message: `Match found! Sarah M. wants to withdraw $${amount}. You can start chatting now.`, time: new Date().toLocaleTimeString()},
-        {sender: 'Sarah M.', message: 'Hello! I need to withdraw this amount. Can we meet at the nearest ATM?', time: new Date().toLocaleTimeString()}
+        {sender: 'Bot', message: `Match found! Sarah M. wants to withdraw $${amount}.`, time: new Date().toLocaleTimeString()},
+        {sender: 'Bot', message: `📍 Sarah M.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString()},
+        {sender: 'Bot', message: `📍 Your location has been shared with Sarah M.`, time: new Date().toLocaleTimeString()},
+        {sender: 'Sarah M.', message: 'Hello! I need to withdraw this amount. I can see your location. Can we meet at the nearest ATM?', time: new Date().toLocaleTimeString()}
       ]);
       toast({
         title: "Match Found!",
-        description: "Connected with Sarah M. Chat window opened.",
+        description: "Connected with Sarah M. Locations shared!",
       });
     }, 3000);
 
@@ -131,7 +182,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     setPin('');
   };
 
-  const handleAddAccount = () => {
+  const handleAddAccount = async () => {
     if (!accountNumber || !bankName) {
       toast({
         title: "Fields Required",
@@ -141,9 +192,25 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       return;
     }
 
+    // Request location permission when adding account
+    toast({
+      title: "Location Required",
+      description: "Please enable location access to find nearby matches for transactions.",
+    });
+    
+    const locationEnabled = await requestLocation();
+    if (!locationEnabled) {
+      toast({
+        title: "Account Adding Paused",
+        description: "Location access is needed for peer-to-peer transactions. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     toast({
       title: "Account Added Successfully",
-      description: `${bankName} account ending in ${accountNumber.slice(-4)} has been linked.`,
+      description: `${bankName} account ending in ${accountNumber.slice(-4)} has been linked with location enabled.`,
     });
 
     setActiveModal(null);
