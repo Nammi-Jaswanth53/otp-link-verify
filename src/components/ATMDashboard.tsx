@@ -37,7 +37,23 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [showMap, setShowMap] = useState(false);
   const [mapLocation, setMapLocation] = useState<{lat: number, lng: number, address: string} | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
+  const [mapsApiKey, setMapsApiKey] = useState<string>('');
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchMapsKey = async () => {
+      try {
+        const response = await fetch('https://htpzmrwvgtucfzgqviov.supabase.co/functions/v1/get-maps-key');
+        const data = await response.json();
+        if (data.apiKey) {
+          setMapsApiKey(data.apiKey);
+        }
+      } catch (error) {
+        console.error('Failed to fetch Maps API key:', error);
+      }
+    };
+    fetchMapsKey();
+  }, []);
 
   // Mock user data
   const userBalance = 5000;
@@ -262,10 +278,10 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   };
 
   const initializeMap = async () => {
-    if (!mapRef.current || !mapLocation) return;
+    if (!mapRef.current || !mapLocation || !mapsApiKey) return;
 
     const loader = new Loader({
-      apiKey: "YOUR_GOOGLE_MAPS_API_KEY", // Replace with your actual API key
+      apiKey: mapsApiKey,
       version: "weekly",
     });
 
