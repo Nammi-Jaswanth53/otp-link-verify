@@ -38,6 +38,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [mapLocation, setMapLocation] = useState<{lat: number, lng: number, address: string} | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapsApiKey, setMapsApiKey] = useState<string>('');
+  const [showAllLocations, setShowAllLocations] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -275,10 +276,29 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const handleLocationClick = (location: {lat: number, lng: number, address: string}) => {
     setMapLocation(location);
     setShowMap(true);
+    setShowAllLocations(false);
+  };
+
+  const handleShowAllLocations = () => {
+    setShowAllLocations(true);
+    setShowMap(true);
+  };
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radius of the Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+    return distance.toFixed(2);
   };
 
   const initializeMap = async () => {
-    if (!mapRef.current || !mapLocation || !mapsApiKey) return;
+    if (!mapRef.current || !mapsApiKey) return;
 
     const loader = new Loader({
       apiKey: mapsApiKey,
@@ -289,17 +309,76 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       const { Map } = await loader.importLibrary("maps");
       const { AdvancedMarkerElement } = await loader.importLibrary("marker");
 
-      const map = new Map(mapRef.current, {
-        center: { lat: mapLocation.lat, lng: mapLocation.lng },
-        zoom: 15,
-        mapId: "DEMO_MAP_ID",
-      });
+      if (showAllLocations && userLocation && matchedUserLocation) {
+        // Show both locations
+        const bounds = new (window as any).google.maps.LatLngBounds();
+        bounds.extend({ lat: userLocation.lat, lng: userLocation.lng });
+        bounds.extend({ lat: matchedUserLocation.lat, lng: matchedUserLocation.lng });
 
-      new AdvancedMarkerElement({
-        map: map,
-        position: { lat: mapLocation.lat, lng: mapLocation.lng },
-        title: mapLocation.address,
-      });
+        const map = new Map(mapRef.current, {
+          center: bounds.getCenter(),
+          zoom: 13,
+          mapId: "DEMO_MAP_ID",
+        });
+
+        // Create marker for your location
+        const yourMarkerContent = document.createElement('div');
+        yourMarkerContent.innerHTML = `
+          <div style="background: #10b981; color: white; padding: 8px 12px; border-radius: 8px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+            📍 You
+          </div>
+        `;
+        
+        new AdvancedMarkerElement({
+          map: map,
+          position: { lat: userLocation.lat, lng: userLocation.lng },
+          content: yourMarkerContent,
+          title: "Your Location",
+        });
+
+        // Create marker for matched user
+        const matchedMarkerContent = document.createElement('div');
+        matchedMarkerContent.innerHTML = `
+          <div style="background: #f59e0b; color: white; padding: 8px 12px; border-radius: 8px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+            📍 ${matchedUser}
+          </div>
+        `;
+        
+        new AdvancedMarkerElement({
+          map: map,
+          position: { lat: matchedUserLocation.lat, lng: matchedUserLocation.lng },
+          content: matchedMarkerContent,
+          title: matchedUserLocation.address,
+        });
+
+        // Draw line between locations
+        const line = new (window as any).google.maps.Polyline({
+          path: [
+            { lat: userLocation.lat, lng: userLocation.lng },
+            { lat: matchedUserLocation.lat, lng: matchedUserLocation.lng }
+          ],
+          geodesic: true,
+          strokeColor: '#3b82f6',
+          strokeOpacity: 0.7,
+          strokeWeight: 3,
+          map: map,
+        });
+
+        map.fitBounds(bounds);
+      } else if (mapLocation) {
+        // Show single location
+        const map = new Map(mapRef.current, {
+          center: { lat: mapLocation.lat, lng: mapLocation.lng },
+          zoom: 15,
+          mapId: "DEMO_MAP_ID",
+        });
+
+        new AdvancedMarkerElement({
+          map: map,
+          position: { lat: mapLocation.lat, lng: mapLocation.lng },
+          title: mapLocation.address,
+        });
+      }
     } catch (error) {
       console.error('Error loading Google Maps:', error);
       toast({
@@ -311,28 +390,42 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   };
 
   useEffect(() => {
-    if (showMap && mapLocation) {
+    if (showMap) {
       initializeMap();
     }
-  }, [showMap, mapLocation]);
+  }, [showMap, mapLocation, showAllLocations]);
 
   const renderMap = () => {
     if (!showMap) return null;
 
+    const distance = showAllLocations && userLocation && matchedUserLocation
+      ? calculateDistance(userLocation.lat, userLocation.lng, matchedUserLocation.lat, matchedUserLocation.lng)
+      : null;
+
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <Card className="w-full max-w-2xl h-96">
+        <Card className="w-full max-w-2xl">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="w-5 h-5" />
-              Location: {mapLocation?.address}
-            </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => setShowMap(false)}>
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                {showAllLocations ? 'Both Locations' : `Location: ${mapLocation?.address}`}
+              </CardTitle>
+              {distance && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Distance: <span className="font-semibold text-primary">{distance} km</span>
+                </p>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => {
+              setShowMap(false);
+              setShowAllLocations(false);
+            }}>
               <X className="w-4 h-4" />
             </Button>
           </CardHeader>
-          <CardContent className="p-0 flex-1">
-            <div ref={mapRef} className="w-full h-64 rounded-b-lg" />
+          <CardContent className="p-0">
+            <div ref={mapRef} className="w-full h-96 rounded-b-lg" />
           </CardContent>
         </Card>
       </div>
@@ -588,17 +681,28 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
 
       {/* Chat Window */}
       {showChat && (
-        <div className="fixed bottom-4 right-4 w-80 h-96 bg-background border rounded-lg shadow-lg z-50 flex flex-col">
+        <div className="fixed bottom-4 right-4 w-80 h-[32rem] bg-background border rounded-lg shadow-lg z-50 flex flex-col">
           <div className="flex items-center justify-between p-4 border-b">
             <h3 className="font-semibold">Chat with {matchedUser}</h3>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setShowChat(false)}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              ×
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleShowAllLocations}
+                className="text-xs"
+              >
+                <MapPin className="w-3 h-3 mr-1" />
+                View Map
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowChat(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                ×
+              </Button>
+            </div>
           </div>
           
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
