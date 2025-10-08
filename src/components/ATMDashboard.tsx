@@ -64,6 +64,49 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     { id: 3, type: 'deposit', amount: 2000, date: '2024-01-13', status: 'completed' },
   ];
 
+  const generateNearbyLocation = (centerLat: number, centerLng: number, distanceKm: number) => {
+    // Generate random distance between 2-3 km
+    const minDistance = 2;
+    const maxDistance = Math.min(distanceKm, 3);
+    const randomDistance = minDistance + Math.random() * (maxDistance - minDistance);
+    
+    // Generate random angle
+    const randomAngle = Math.random() * 2 * Math.PI;
+    
+    // Earth's radius in km
+    const earthRadius = 6371;
+    
+    // Calculate new coordinates
+    const newLat = centerLat + (randomDistance / earthRadius) * (180 / Math.PI) * Math.cos(randomAngle);
+    const newLng = centerLng + (randomDistance / earthRadius) * (180 / Math.PI) * Math.sin(randomAngle) / Math.cos(centerLat * Math.PI / 180);
+    
+    return { lat: newLat, lng: newLng };
+  };
+
+  const getAddressFromCoords = async (lat: number, lng: number): Promise<string> => {
+    if (!mapsApiKey) return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${mapsApiKey}`
+      );
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        // Try to find a locality (village/town) or use the formatted address
+        const result = data.results.find((r: any) => 
+          r.types.includes('locality') || r.types.includes('sublocality')
+        ) || data.results[0];
+        
+        return result.formatted_address;
+      }
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    } catch (error) {
+      console.error('Error getting address:', error);
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+  };
+
   const requestLocation = async () => {
     if (!navigator.geolocation) {
       toast({
@@ -123,11 +166,16 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
 
     toast({
       title: "🤖 Bot Searching",
-      description: `Looking for users within 5km who want to deposit $${amount}...`,
+      description: `Looking for users within 3km who want to deposit $${amount}...`,
     });
 
-    setTimeout(() => {
-      const mockLocation = { lat: 40.7128, lng: -74.0060, address: "123 Main St, New York, NY" };
+    setTimeout(async () => {
+      if (!userLocation) return;
+      
+      const nearbyCoords = generateNearbyLocation(userLocation.lat, userLocation.lng, 3);
+      const address = await getAddressFromCoords(nearbyCoords.lat, nearbyCoords.lng);
+      const mockLocation = { ...nearbyCoords, address };
+      
       setMatchedUser('John D.');
       setMatchedUserLocation(mockLocation);
       setShowChat(true);
@@ -162,11 +210,16 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
 
     toast({
       title: "🤖 Bot Searching",
-      description: `Looking for users within 5km who want to withdraw $${amount}...`,
+      description: `Looking for users within 3km who want to withdraw $${amount}...`,
     });
 
-    setTimeout(() => {
-      const mockLocation = { lat: 40.7589, lng: -73.9851, address: "456 Broadway, New York, NY" };
+    setTimeout(async () => {
+      if (!userLocation) return;
+      
+      const nearbyCoords = generateNearbyLocation(userLocation.lat, userLocation.lng, 3);
+      const address = await getAddressFromCoords(nearbyCoords.lat, nearbyCoords.lng);
+      const mockLocation = { ...nearbyCoords, address };
+      
       setMatchedUser('Sarah M.');
       setMatchedUserLocation(mockLocation);
       setShowChat(true);
