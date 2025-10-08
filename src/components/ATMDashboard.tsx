@@ -32,7 +32,9 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [chatMessages, setChatMessages] = useState<Array<{sender: string, message: string, time: string, location?: {lat: number, lng: number, address: string}}>>([]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [matchedUser, setMatchedUser] = useState('');
-  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+  // Default location set to Narsipatnam, Anakapalli District
+  const NARSIPATNAM_COORDS = { lat: 17.6667, lng: 82.6167 };
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number}>(NARSIPATNAM_COORDS);
   const [matchedUserLocation, setMatchedUserLocation] = useState<{lat: number, lng: number, address: string} | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [mapLocation, setMapLocation] = useState<{lat: number, lng: number, address: string} | null>(null);
@@ -100,7 +102,22 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   };
 
   const getAddressFromCoords = async (lat: number, lng: number): Promise<string> => {
-    if (!mapsApiKey) return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    // Fallback village names near Narsipatnam
+    const nearbyVillages = [
+      'Pedagantyada, Anakapalli District',
+      'Chintapalli, Anakapalli District', 
+      'Butchaiah Palem, Anakapalli District',
+      'Madugula, Anakapalli District',
+      'Sabbavaram, Anakapalli District',
+      'Chodavaram, Anakapalli District',
+      'Rolugunta, Anakapalli District',
+      'Narsipatnam Town, Anakapalli District'
+    ];
+    
+    // If no API key, return a random nearby village
+    if (!mapsApiKey) {
+      return nearbyVillages[Math.floor(Math.random() * nearbyVillages.length)];
+    }
     
     try {
       const response = await fetch(
@@ -108,54 +125,30 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       );
       const data = await response.json();
       
-      if (data.results && data.results.length > 0) {
-        // Try to find a locality (village/town) or use the formatted address
+      if (data.status === 'OK' && data.results && data.results.length > 0) {
         const result = data.results.find((r: any) => 
           r.types.includes('locality') || r.types.includes('sublocality')
         ) || data.results[0];
         
         return result.formatted_address;
       }
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      // Fallback to nearby village if API fails
+      return nearbyVillages[Math.floor(Math.random() * nearbyVillages.length)];
     } catch (error) {
       console.error('Error getting address:', error);
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      // Fallback to nearby village on error
+      return nearbyVillages[Math.floor(Math.random() * nearbyVillages.length)];
     }
   };
 
   const requestLocation = async () => {
-    if (!navigator.geolocation) {
-      toast({
-        title: "Location Not Supported",
-        description: "Your browser doesn't support location services.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    return new Promise<boolean>((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-          toast({
-            title: "Location Enabled",
-            description: "Your location has been shared for matching.",
-          });
-          resolve(true);
-        },
-        (error) => {
-          toast({
-            title: "Location Access Denied",
-            description: "Please enable location access to find nearby matches.",
-            variant: "destructive",
-          });
-          resolve(false);
-        }
-      );
+    // Always use Narsipatnam as base location
+    setUserLocation(NARSIPATNAM_COORDS);
+    toast({
+      title: "Location Set",
+      description: "Your location: Narsipatnam, Anakapalli District",
     });
+    return true;
   };
 
   const handleWithdrawal = async () => {
@@ -177,17 +170,19 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       return;
     }
 
-    const locationEnabled = await requestLocation();
-    if (!locationEnabled) return;
+    // Ensure location is set
+    await requestLocation();
 
     toast({
       title: "🤖 Bot Searching",
       description: `Looking for users within 3km who want to deposit $${amount}...`,
     });
 
+    setActiveModal(null);
+    setAmount('');
+
+    // Use setTimeout to simulate matching
     setTimeout(async () => {
-      if (!userLocation) return;
-      
       const nearbyCoords = generateNearbyLocation(userLocation.lat, userLocation.lng, 3);
       const address = await getAddressFromCoords(nearbyCoords.lat, nearbyCoords.lng);
       const mockLocation = { ...nearbyCoords, address };
@@ -198,17 +193,14 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       setChatMessages([
         {sender: 'Bot', message: `Match found! John D. wants to deposit $${amount}.`, time: new Date().toLocaleTimeString()},
         {sender: 'Bot', message: `📍 John D.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString(), location: mockLocation},
-        {sender: 'Bot', message: `📍 Your location has been shared with John D.`, time: new Date().toLocaleTimeString()},
-        {sender: 'John D.', message: 'Hi! I have the cash ready for deposit. I can see your location. Shall we meet?', time: new Date().toLocaleTimeString()}
+        {sender: 'Bot', message: `📍 Your location: Narsipatnam, Anakapalli District`, time: new Date().toLocaleTimeString()},
+        {sender: 'John D.', message: 'Hi! I have the cash ready for deposit. Shall we meet?', time: new Date().toLocaleTimeString()}
       ]);
       toast({
         title: "Match Found!",
         description: "Connected with John D. Locations shared!",
       });
-    }, 3000);
-
-    setActiveModal(null);
-    setAmount('');
+    }, 2000);
   };
 
   const handleDeposit = async () => {
@@ -221,17 +213,19 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       return;
     }
 
-    const locationEnabled = await requestLocation();
-    if (!locationEnabled) return;
+    // Ensure location is set
+    await requestLocation();
 
     toast({
       title: "🤖 Bot Searching",
       description: `Looking for users within 3km who want to withdraw $${amount}...`,
     });
 
+    setActiveModal(null);
+    setAmount('');
+
+    // Use setTimeout to simulate matching
     setTimeout(async () => {
-      if (!userLocation) return;
-      
       const nearbyCoords = generateNearbyLocation(userLocation.lat, userLocation.lng, 3);
       const address = await getAddressFromCoords(nearbyCoords.lat, nearbyCoords.lng);
       const mockLocation = { ...nearbyCoords, address };
@@ -242,17 +236,14 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       setChatMessages([
         {sender: 'Bot', message: `Match found! Sarah M. wants to withdraw $${amount}.`, time: new Date().toLocaleTimeString()},
         {sender: 'Bot', message: `📍 Sarah M.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString(), location: mockLocation},
-        {sender: 'Bot', message: `📍 Your location has been shared with Sarah M.`, time: new Date().toLocaleTimeString()},
-        {sender: 'Sarah M.', message: 'Hello! I need to withdraw this amount. I can see your location. Can we meet at the nearest ATM?', time: new Date().toLocaleTimeString()}
+        {sender: 'Bot', message: `📍 Your location: Narsipatnam, Anakapalli District`, time: new Date().toLocaleTimeString()},
+        {sender: 'Sarah M.', message: 'Hello! I need to withdraw this amount. Can we meet at the nearest ATM?', time: new Date().toLocaleTimeString()}
       ]);
       toast({
         title: "Match Found!",
         description: "Connected with Sarah M. Locations shared!",
       });
-    }, 3000);
-
-    setActiveModal(null);
-    setAmount('');
+    }, 2000);
   };
 
   const handleCheckBalance = () => {
@@ -284,25 +275,12 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       return;
     }
 
-    // Request location permission when adding account
-    toast({
-      title: "Location Required",
-      description: "Please enable location access to find nearby matches for transactions.",
-    });
-    
-    const locationEnabled = await requestLocation();
-    if (!locationEnabled) {
-      toast({
-        title: "Account Adding Paused",
-        description: "Location access is needed for peer-to-peer transactions. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Set location automatically
+    await requestLocation();
 
     toast({
       title: "Account Added Successfully",
-      description: `${bankName} account ending in ${accountNumber.slice(-4)} has been linked with location enabled.`,
+      description: `${bankName} account ending in ${accountNumber.slice(-4)} has been linked.`,
     });
 
     setActiveModal(null);
