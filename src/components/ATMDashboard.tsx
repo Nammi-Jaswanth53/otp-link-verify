@@ -70,15 +70,31 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     const maxDistance = Math.min(distanceKm, 3);
     const randomDistance = minDistance + Math.random() * (maxDistance - minDistance);
     
-    // Generate random angle
-    const randomAngle = Math.random() * 2 * Math.PI;
+    // Generate random bearing (angle) in radians
+    const bearing = Math.random() * 2 * Math.PI;
     
     // Earth's radius in km
-    const earthRadius = 6371;
+    const R = 6371;
     
-    // Calculate new coordinates
-    const newLat = centerLat + (randomDistance / earthRadius) * (180 / Math.PI) * Math.cos(randomAngle);
-    const newLng = centerLng + (randomDistance / earthRadius) * (180 / Math.PI) * Math.sin(randomAngle) / Math.cos(centerLat * Math.PI / 180);
+    // Convert latitude to radians
+    const lat1 = centerLat * Math.PI / 180;
+    const lng1 = centerLng * Math.PI / 180;
+    
+    // Calculate new latitude
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(randomDistance / R) +
+      Math.cos(lat1) * Math.sin(randomDistance / R) * Math.cos(bearing)
+    );
+    
+    // Calculate new longitude
+    const lng2 = lng1 + Math.atan2(
+      Math.sin(bearing) * Math.sin(randomDistance / R) * Math.cos(lat1),
+      Math.cos(randomDistance / R) - Math.sin(lat1) * Math.sin(lat2)
+    );
+    
+    // Convert back to degrees
+    const newLat = lat2 * 180 / Math.PI;
+    const newLng = lng2 * 180 / Math.PI;
     
     return { lat: newLat, lng: newLng };
   };
@@ -338,16 +354,21 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   };
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // Radius of the Earth in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const R = 6371; // Earth's radius in kilometers
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c;
-    return distance.toFixed(2);
+    
+    return distance.toFixed(2); // Return distance rounded to 2 decimal places
   };
 
   const initializeMap = async () => {
