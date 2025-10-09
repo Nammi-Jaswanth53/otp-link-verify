@@ -102,16 +102,14 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   };
 
   const getAddressFromCoords = async (lat: number, lng: number): Promise<string> => {
-    // Fallback village names near Narsipatnam
+    // Only villages actually within 2-3km of Narsipatnam
     const nearbyVillages = [
-      'Pedagantyada, Anakapalli District',
-      'Chintapalli, Anakapalli District', 
-      'Butchaiah Palem, Anakapalli District',
-      'Madugula, Anakapalli District',
-      'Sabbavaram, Anakapalli District',
-      'Chodavaram, Anakapalli District',
-      'Rolugunta, Anakapalli District',
-      'Narsipatnam Town, Anakapalli District'
+      'Pedagantyada, Narsipatnam, Anakapalli District',
+      'Butchaiah Palem, Narsipatnam, Anakapalli District',
+      'Rolugunta, Narsipatnam, Anakapalli District',
+      'Narsipatnam Railway Station Area, Anakapalli District',
+      'Narsipatnam Bus Stand Area, Anakapalli District',
+      'Narsipatnam Market Area, Anakapalli District'
     ];
     
     // If no API key, return a random nearby village
