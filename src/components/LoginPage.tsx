@@ -18,6 +18,47 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     { username: 'demo', password: 'demo123' },
   ];
 
+  const requestLocationPermission = async () => {
+    try {
+      const result = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+      
+      if (result.state === 'granted' || result.state === 'prompt') {
+        navigator.geolocation.getCurrentPosition(
+          () => {
+            toast({
+              title: "Location Enabled",
+              description: "Location access granted for matching nearby users",
+            });
+          },
+          () => {
+            toast({
+              title: "Location Access",
+              description: "Location permission is needed to match with nearby users",
+              variant: "destructive",
+            });
+          }
+        );
+      }
+    } catch (error) {
+      // Fallback for browsers that don't support permissions API
+      navigator.geolocation.getCurrentPosition(
+        () => {
+          toast({
+            title: "Location Enabled",
+            description: "Location access granted for matching nearby users",
+          });
+        },
+        () => {
+          toast({
+            title: "Location Access",
+            description: "Location permission is needed to match with nearby users",
+            variant: "destructive",
+          });
+        }
+      );
+    }
+  };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -30,6 +71,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         title: "Login Successful",
         description: `Welcome back, ${loginData.username}!`,
       });
+      
+      // Request location permission after successful login
+      setTimeout(() => {
+        requestLocationPermission();
+      }, 500);
+      
       onLoginSuccess();
     } else {
       toast({
