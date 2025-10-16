@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useRequestQueue } from '@/hooks/useRequestQueue';
 import { 
   ArrowDownLeft, 
   ArrowUpRight, 
@@ -14,7 +15,9 @@ import {
   Bot,
   Shield,
   MapPin,
-  X
+  X,
+  Users,
+  Clock
 } from 'lucide-react';
 import { Loader } from '@googlemaps/js-api-loader';
 
@@ -41,9 +44,11 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapsApiKey, setMapsApiKey] = useState<string>('');
   const [showAllLocations, setShowAllLocations] = useState(false);
-  const [pendingRequest, setPendingRequest] = useState<{type: 'withdrawal' | 'deposit', amount: string, timestamp: number} | null>(null);
+  const [myRequestId, setMyRequestId] = useState<string | null>(null);
   const [isWaitingForMatch, setIsWaitingForMatch] = useState(false);
+  const [nearbyRequests, setNearbyRequests] = useState<any[]>([]);
   const { toast } = useToast();
+  const { queue, addRequest, removeRequest, findMatch, getNearbyRequests } = useRequestQueue();
 
   useEffect(() => {
     const fetchMapsKey = async () => {
@@ -59,6 +64,34 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     };
     fetchMapsKey();
   }, []);
+
+  // Check for matches periodically
+  useEffect(() => {
+    if (!myRequestId) return;
+
+    const checkInterval = setInterval(() => {
+      const myRequest = queue.find(r => r.id === myRequestId);
+      if (!myRequest) return;
+
+      const match = findMatch(myRequest.type, myRequest.amount);
+      if (match) {
+        handleMatchFound(myRequest, match);
+      }
+    }, 2000);
+
+    return () => clearInterval(checkInterval);
+  }, [myRequestId, queue]);
+
+  // Update nearby requests when queue changes
+  useEffect(() => {
+    if (isWaitingForMatch && myRequestId) {
+      const myRequest = queue.find(r => r.id === myRequestId);
+      if (myRequest) {
+        const nearby = getNearbyRequests(userLocation.lat, userLocation.lng, myRequest.type);
+        setNearbyRequests(nearby);
+      }
+    }
+  }, [queue, isWaitingForMatch, myRequestId]);
 
   // Mock user data
   const userBalance = 5000;
@@ -151,6 +184,42 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     return true;
   };
 
+  const handleMatchFound = async (myRequest: any, matchedRequest: any) => {
+    // Remove both requests from queue
+    removeRequest(myRequest.id);
+    removeRequest(matchedRequest.id);
+    setMyRequestId(null);
+    setIsWaitingForMatch(false);
+
+    const waitTime = Math.round((Date.now() - myRequest.timestamp) / 1000);
+    
+    setMatchedUser(matchedRequest.userName);
+    setMatchedUserLocation(matchedRequest.location);
+    setShowChat(true);
+    
+    const messages = [
+      {sender: 'Bot', message: `🎉 MATCH FOUND! ${matchedRequest.userName} wants to ${matchedRequest.type === 'withdrawal' ? 'withdraw' : 'deposit'} $${matchedRequest.amount}.`, time: new Date().toLocaleTimeString()},
+      {sender: 'Bot', message: `You waited ${waitTime} seconds. ${matchedRequest.userName} is ready now!`, time: new Date().toLocaleTimeString()},
+      {sender: 'Bot', message: `📍 ${matchedRequest.userName}'s location: ${matchedRequest.location.address}`, time: new Date().toLocaleTimeString(), location: matchedRequest.location},
+      {sender: 'Bot', message: `📍 Your location: Narsipatnam, Anakapalli District`, time: new Date().toLocaleTimeString()},
+      {sender: matchedRequest.userName, message: `Hi! I'm ready to ${matchedRequest.type === 'withdrawal' ? 'withdraw' : 'deposit'} $${matchedRequest.amount}. Shall we meet?`, time: new Date().toLocaleTimeString()}
+    ];
+    
+    setChatMessages(messages);
+    
+    toast({
+      title: "🎉 MATCH FOUND!",
+      description: `${matchedRequest.userName} is ready! Chat opened.`,
+    });
+    
+    setTimeout(() => {
+      toast({
+        title: "💬 New Message",
+        description: `${matchedRequest.userName} sent you a message!`,
+      });
+    }, 2000);
+  };
+
   const handleWithdrawal = async () => {
     if (!amount) {
       toast({
@@ -170,101 +239,51 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       return;
     }
 
-    // Ensure location is set
     await requestLocation();
 
     const requestAmount = amount;
     setActiveModal(null);
     setAmount('');
 
-    // Simulate checking for available depositors
-    // 50% chance of immediate match, 50% chance of waiting
-    const hasImmediateMatch = Math.random() > 0.5;
+    // Check if there's an immediate match
+    const match = findMatch('withdrawal', requestAmount);
 
-    if (hasImmediateMatch) {
+    if (match) {
       toast({
-        title: "🤖 Bot Searching",
-        description: `Looking for users within 3km who want to deposit $${requestAmount}...`,
+        title: "🤖 Match Found Instantly!",
+        description: `Found ${match.userName} who wants to deposit $${requestAmount}!`,
       });
 
-      setTimeout(async () => {
-        const nearbyCoords = generateNearbyLocation(userLocation.lat, userLocation.lng, 3);
-        const address = await getAddressFromCoords(nearbyCoords.lat, nearbyCoords.lng);
-        const mockLocation = { ...nearbyCoords, address };
-        
-        setMatchedUser('John D.');
-        setMatchedUserLocation(mockLocation);
-        setShowChat(true);
-        setChatMessages([
-          {sender: 'Bot', message: `Match found! John D. wants to deposit $${requestAmount}.`, time: new Date().toLocaleTimeString()},
-          {sender: 'Bot', message: `📍 John D.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString(), location: mockLocation},
-          {sender: 'Bot', message: `📍 Your location: Narsipatnam, Anakapalli District`, time: new Date().toLocaleTimeString()},
-          {sender: 'John D.', message: 'Hi! I have the cash ready for deposit. Shall we meet?', time: new Date().toLocaleTimeString()}
-        ]);
-        toast({
-          title: "Match Found!",
-          description: "Connected with John D. Locations shared!",
-        });
+      setTimeout(() => {
+        handleMatchFound(
+          {
+            type: 'withdrawal',
+            amount: requestAmount,
+            userName: 'You',
+            location: { lat: userLocation.lat, lng: userLocation.lng, address: 'Narsipatnam, Anakapalli District' },
+            timestamp: Date.now()
+          },
+          match
+        );
       }, 2000);
     } else {
-      // No immediate match - add to waiting queue
-      setPendingRequest({
+      // No match - add to queue
+      const address = await getAddressFromCoords(userLocation.lat, userLocation.lng);
+      const request = addRequest({
         type: 'withdrawal',
         amount: requestAmount,
-        timestamp: Date.now()
+        userName: 'You',
+        location: { lat: userLocation.lat, lng: userLocation.lng, address }
       });
+
+      setMyRequestId(request.id);
       setIsWaitingForMatch(true);
 
       toast({
-        title: "⏳ Request Pending",
-        description: `No depositors available right now. You'll be notified when someone wants to deposit $${requestAmount}.`,
+        title: "❌ No Depositors Available",
+        description: `No one is ready to deposit $${requestAmount} right now. Waiting for someone...`,
+        variant: "destructive",
       });
-
-      // Simulate someone becoming available after random time (5-15 seconds)
-      const waitTime = 5000 + Math.random() * 10000;
-      setTimeout(async () => {
-        // Check if the pending request still exists (user hasn't cancelled)
-        setPendingRequest((current) => {
-          if (current?.type === 'withdrawal') {
-            // Match found - trigger notification
-            (async () => {
-              const nearbyCoords = generateNearbyLocation(userLocation.lat, userLocation.lng, 3);
-              const address = await getAddressFromCoords(nearbyCoords.lat, nearbyCoords.lng);
-              const mockLocation = { ...nearbyCoords, address };
-              
-              setMatchedUser('John D.');
-              setMatchedUserLocation(mockLocation);
-              setShowChat(true);
-              setChatMessages([
-                {sender: 'Bot', message: `🎉 MATCH FOUND! John D. is now ready to deposit $${current.amount}.`, time: new Date().toLocaleTimeString()},
-                {sender: 'Bot', message: `You were waiting for ${Math.round((Date.now() - current.timestamp) / 1000)} seconds. John D. is now available!`, time: new Date().toLocaleTimeString()},
-                {sender: 'Bot', message: `📍 John D.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString(), location: mockLocation},
-                {sender: 'Bot', message: `📍 Your location: Narsipatnam, Anakapalli District`, time: new Date().toLocaleTimeString()},
-                {sender: 'John D.', message: 'Hi! Sorry for the wait. I have the cash ready now. Shall we meet?', time: new Date().toLocaleTimeString()}
-              ]);
-              
-              // Multiple notifications for better visibility
-              toast({
-                title: "🎉 MATCH FOUND!",
-                description: `John D. is ready to deposit $${current.amount}! Chat opened.`,
-              });
-              
-              // Second notification after 2 seconds
-              setTimeout(() => {
-                toast({
-                  title: "💬 New Message",
-                  description: "John D. sent you a message. Check your chat!",
-                });
-              }, 2000);
-              
-              setIsWaitingForMatch(false);
-            })();
-            
-            return null; // Clear pending request
-          }
-          return current;
-        });
-      }, waitTime);
     }
   };
 
@@ -278,101 +297,64 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       return;
     }
 
-    // Ensure location is set
     await requestLocation();
 
     const requestAmount = amount;
     setActiveModal(null);
     setAmount('');
 
-    // Simulate checking for available withdrawers
-    // 50% chance of immediate match, 50% chance of waiting
-    const hasImmediateMatch = Math.random() > 0.5;
+    // Check if there's an immediate match
+    const match = findMatch('deposit', requestAmount);
 
-    if (hasImmediateMatch) {
+    if (match) {
       toast({
-        title: "🤖 Bot Searching",
-        description: `Looking for users within 3km who want to withdraw $${requestAmount}...`,
+        title: "🤖 Match Found Instantly!",
+        description: `Found ${match.userName} who wants to withdraw $${requestAmount}!`,
       });
 
-      setTimeout(async () => {
-        const nearbyCoords = generateNearbyLocation(userLocation.lat, userLocation.lng, 3);
-        const address = await getAddressFromCoords(nearbyCoords.lat, nearbyCoords.lng);
-        const mockLocation = { ...nearbyCoords, address };
-        
-        setMatchedUser('Sarah M.');
-        setMatchedUserLocation(mockLocation);
-        setShowChat(true);
-        setChatMessages([
-          {sender: 'Bot', message: `Match found! Sarah M. wants to withdraw $${requestAmount}.`, time: new Date().toLocaleTimeString()},
-          {sender: 'Bot', message: `📍 Sarah M.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString(), location: mockLocation},
-          {sender: 'Bot', message: `📍 Your location: Narsipatnam, Anakapalli District`, time: new Date().toLocaleTimeString()},
-          {sender: 'Sarah M.', message: 'Hello! I need to withdraw this amount. Can we meet at the nearest ATM?', time: new Date().toLocaleTimeString()}
-        ]);
-        toast({
-          title: "Match Found!",
-          description: "Connected with Sarah M. Locations shared!",
-        });
+      setTimeout(() => {
+        handleMatchFound(
+          {
+            type: 'deposit',
+            amount: requestAmount,
+            userName: 'You',
+            location: { lat: userLocation.lat, lng: userLocation.lng, address: 'Narsipatnam, Anakapalli District' },
+            timestamp: Date.now()
+          },
+          match
+        );
       }, 2000);
     } else {
-      // No immediate match - add to waiting queue
-      setPendingRequest({
+      // No match - add to queue
+      const address = await getAddressFromCoords(userLocation.lat, userLocation.lng);
+      const request = addRequest({
         type: 'deposit',
         amount: requestAmount,
-        timestamp: Date.now()
+        userName: 'You',
+        location: { lat: userLocation.lat, lng: userLocation.lng, address }
       });
+
+      setMyRequestId(request.id);
       setIsWaitingForMatch(true);
 
       toast({
-        title: "⏳ Request Pending",
-        description: `No withdrawers available right now. You'll be notified when someone wants to withdraw $${requestAmount}.`,
+        title: "❌ No Withdrawers Available",
+        description: `No one is ready to withdraw $${requestAmount} right now. Waiting for someone...`,
+        variant: "destructive",
       });
+    }
+  };
 
-      // Simulate someone becoming available after random time (5-15 seconds)
-      const waitTime = 5000 + Math.random() * 10000;
-      setTimeout(async () => {
-        // Check if the pending request still exists (user hasn't cancelled)
-        setPendingRequest((current) => {
-          if (current?.type === 'deposit') {
-            // Match found - trigger notification
-            (async () => {
-              const nearbyCoords = generateNearbyLocation(userLocation.lat, userLocation.lng, 3);
-              const address = await getAddressFromCoords(nearbyCoords.lat, nearbyCoords.lng);
-              const mockLocation = { ...nearbyCoords, address };
-              
-              setMatchedUser('Sarah M.');
-              setMatchedUserLocation(mockLocation);
-              setShowChat(true);
-              setChatMessages([
-                {sender: 'Bot', message: `🎉 MATCH FOUND! Sarah M. now wants to withdraw $${current.amount}.`, time: new Date().toLocaleTimeString()},
-                {sender: 'Bot', message: `You were waiting for ${Math.round((Date.now() - current.timestamp) / 1000)} seconds. Sarah M. is now available!`, time: new Date().toLocaleTimeString()},
-                {sender: 'Bot', message: `📍 Sarah M.'s location: ${mockLocation.address}`, time: new Date().toLocaleTimeString(), location: mockLocation},
-                {sender: 'Bot', message: `📍 Your location: Narsipatnam, Anakapalli District`, time: new Date().toLocaleTimeString()},
-                {sender: 'Sarah M.', message: 'Hi! I just need to withdraw this amount now. Can we meet?', time: new Date().toLocaleTimeString()}
-              ]);
-              
-              // Multiple notifications for better visibility
-              toast({
-                title: "🎉 MATCH FOUND!",
-                description: `Sarah M. wants to withdraw $${current.amount}! Chat opened.`,
-              });
-              
-              // Second notification after 2 seconds
-              setTimeout(() => {
-                toast({
-                  title: "💬 New Message",
-                  description: "Sarah M. sent you a message. Check your chat!",
-                });
-              }, 2000);
-              
-              setIsWaitingForMatch(false);
-            })();
-            
-            return null; // Clear pending request
-          }
-          return current;
-        });
-      }, waitTime);
+  const handleCancelRequest = () => {
+    if (myRequestId) {
+      removeRequest(myRequestId);
+      setMyRequestId(null);
+      setIsWaitingForMatch(false);
+      setNearbyRequests([]);
+      toast({
+        title: "Request Cancelled",
+        description: "Your request has been removed from the queue.",
+      });
     }
   };
 
@@ -768,7 +750,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
         </div>
 
         {/* Pending Request Notification */}
-        {isWaitingForMatch && pendingRequest && (
+        {isWaitingForMatch && myRequestId && (
           <Card className="mb-6 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 animate-fade-in">
             <CardContent className="flex items-center gap-4 p-4">
               <div className="animate-pulse">
@@ -776,30 +758,64 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-amber-900 dark:text-amber-100">
-                  ⏳ Searching for {pendingRequest.type === 'withdrawal' ? 'Depositor' : 'Withdrawer'}
+                  ⏳ Searching for Match...
                 </p>
                 <p className="text-sm text-amber-700 dark:text-amber-300">
-                  Looking for someone who wants to {pendingRequest.type === 'withdrawal' ? 'deposit' : 'withdraw'} ${pendingRequest.amount} nearby...
+                  Looking for someone nearby who wants to match your request...
                 </p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 font-medium">
-                  🔔 You'll get a notification + chat will open automatically when someone is found!
+                {nearbyRequests.length === 0 ? (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
+                    ❌ No one is ready right now. Still waiting...
+                  </p>
+                ) : (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">
+                    ✅ Found {nearbyRequests.length} nearby user(s) - checking for exact match...
+                  </p>
+                )}
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  🔔 You'll get a notification when someone matches!
                 </p>
               </div>
               <Button 
                 variant="ghost" 
                 size="sm"
-                onClick={() => {
-                  setPendingRequest(null);
-                  setIsWaitingForMatch(false);
-                  toast({
-                    title: "Request Cancelled",
-                    description: "Your search has been cancelled.",
-                  });
-                }}
+                onClick={handleCancelRequest}
                 className="text-amber-700 hover:text-amber-900 dark:text-amber-300"
               >
                 Cancel
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Nearby Waiting Users */}
+        {isWaitingForMatch && nearbyRequests.length > 0 && (
+          <Card className="mb-6 border-blue-200 dark:border-blue-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Users className="w-5 h-5" />
+                Nearby Users Waiting ({nearbyRequests.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {nearbyRequests.map((req, idx) => (
+                <div key={req.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="font-medium text-sm">{req.userName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Wants to {req.type} ${req.amount} • {req.distance.toFixed(1)}km away
+                      </p>
+                      <p className="text-xs text-muted-foreground">{req.location.address}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="w-3 h-3" />
+                    {Math.round((Date.now() - req.timestamp) / 1000)}s ago
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
         )}
