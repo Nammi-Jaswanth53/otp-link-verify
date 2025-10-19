@@ -5,6 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useRequestQueue } from '@/hooks/useRequestQueue';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   ArrowDownLeft, 
   ArrowUpRight, 
@@ -17,7 +24,9 @@ import {
   MapPin,
   X,
   Users,
-  Clock
+  Clock,
+  CreditCard,
+  Trash2
 } from 'lucide-react';
 import { Loader } from '@googlemaps/js-api-loader';
 
@@ -31,6 +40,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [pin, setPin] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [bankName, setBankName] = useState('');
+  const [addedAccounts, setAddedAccounts] = useState<Array<{id: string, bankName: string, accountNumber: string, addedDate: string}>>([]);
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{sender: string, message: string, time: string, location?: {lat: number, lng: number, address: string}}>>([]);
   const [currentMessage, setCurrentMessage] = useState('');
@@ -49,6 +59,31 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [nearbyRequests, setNearbyRequests] = useState<any[]>([]);
   const { toast } = useToast();
   const { queue, addRequest, removeRequest, findMatch, getNearbyRequests } = useRequestQueue();
+
+  // List of common bank names in India
+  const BANK_NAMES = [
+    'State Bank of India (SBI)',
+    'HDFC Bank',
+    'ICICI Bank',
+    'Axis Bank',
+    'Kotak Mahindra Bank',
+    'Punjab National Bank (PNB)',
+    'Bank of Baroda',
+    'Canara Bank',
+    'Union Bank of India',
+    'Bank of India',
+    'IndusInd Bank',
+    'IDFC First Bank',
+    'Yes Bank',
+    'Federal Bank',
+    'RBL Bank',
+    'South Indian Bank',
+    'Karur Vysya Bank',
+    'City Union Bank',
+    'Bandhan Bank',
+    'AU Small Finance Bank',
+    'Equitas Small Finance Bank'
+  ];
 
   useEffect(() => {
     const fetchMapsKey = async () => {
@@ -381,7 +416,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     if (!accountNumber || !bankName) {
       toast({
         title: "Fields Required",
-        description: "Please enter both account number and bank name.",
+        description: "Please select bank name and enter account number.",
         variant: "destructive",
       });
       return;
@@ -389,6 +424,15 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
 
     // Set location automatically
     await requestLocation();
+
+    const newAccount = {
+      id: Date.now().toString(),
+      bankName,
+      accountNumber,
+      addedDate: new Date().toLocaleDateString()
+    };
+
+    setAddedAccounts(prev => [...prev, newAccount]);
 
     toast({
       title: "Account Added Successfully",
@@ -398,6 +442,14 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     setActiveModal(null);
     setAccountNumber('');
     setBankName('');
+  };
+
+  const handleRemoveAccount = (accountId: string) => {
+    setAddedAccounts(prev => prev.filter(acc => acc.id !== accountId));
+    toast({
+      title: "Account Removed",
+      description: "Bank account has been removed from your profile.",
+    });
   };
 
   const sendMessage = () => {
@@ -704,13 +756,18 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="bankName">Bank Name</Label>
-                  <Input
-                    id="bankName"
-                    type="text"
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    placeholder="Enter bank name"
-                  />
+                  <Select value={bankName} onValueChange={setBankName}>
+                    <SelectTrigger className="w-full bg-background">
+                      <SelectValue placeholder="Select your bank" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {BANK_NAMES.map((bank) => (
+                        <SelectItem key={bank} value={bank}>
+                          {bank}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="accountNumber">Account Number</Label>
@@ -905,6 +962,44 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Added Bank Accounts Section */}
+        {addedAccounts.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5" />
+                Your Bank Accounts ({addedAccounts.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {addedAccounts.map((account) => (
+                <div key={account.id} className="flex items-center justify-between p-4 bg-muted rounded-lg hover:bg-muted/80 transition-smooth">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      <CreditCard className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">{account.bankName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Account: ****{account.accountNumber.slice(-4)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Added: {account.addedDate}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveAccount(account.id)}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         <div className="mt-6 text-center text-sm text-muted-foreground">
           <p>🤖 AI-powered peer-to-peer money exchange within 5km radius</p>
