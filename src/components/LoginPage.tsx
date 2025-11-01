@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
@@ -7,16 +8,11 @@ interface LoginPageProps {
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [activeForm, setActiveForm] = useState<'menu' | 'login' | 'register'>('menu');
-  const [loginData, setLoginData] = useState({ username: '', password: '' });
-  const [registerData, setRegisterData] = useState({ username: '', email: '', password: '' });
+  const [loginData, setLoginData] = useState({ phone: '', password: '' });
+  const [registerData, setRegisterData] = useState({ phone: '', password: '' });
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-
-  // Mock users database
-  const mockUsers = [
-    { username: 'admin', password: 'admin123' },
-    { username: 'user', password: 'user123' },
-    { username: 'demo', password: 'demo123' },
-  ];
+  const NARSIPATNAM_COORDS = { lat: 17.6667, lng: 82.6167 };
 
   const requestLocationPermission = async () => {
     try {
@@ -40,7 +36,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         );
       }
     } catch (error) {
-      // Fallback for browsers that don't support permissions API
       navigator.geolocation.getCurrentPosition(
         () => {
           toast({
@@ -59,46 +54,86 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     
-    const user = mockUsers.find(
-      u => u.username === loginData.username && u.password === loginData.password
-    );
-
-    if (user) {
-      toast({
-        title: "Login Successful",
-        description: `Welcome back, ${loginData.username}!`,
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: `${loginData.phone}@atm.app`,
+        password: loginData.password,
       });
-      
-      // Request location permission after successful login
-      setTimeout(() => {
-        requestLocationPermission();
-      }, 500);
-      
-      onLoginSuccess();
-    } else {
+
+      if (error) throw error;
+
+      if (data.user) {
+        // Update user location
+        await supabase
+          .from('profiles')
+          .update({
+            location_lat: NARSIPATNAM_COORDS.lat,
+            location_lng: NARSIPATNAM_COORDS.lng
+          })
+          .eq('id', data.user.id);
+
+        toast({
+          title: "Login Successful",
+          description: `Welcome back!`,
+        });
+        
+        setTimeout(() => {
+          requestLocationPermission();
+        }, 500);
+        
+        onLoginSuccess();
+      }
+    } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: "Invalid username or password. Try: admin/admin123",
+        description: error.message || "Invalid phone number or password",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     
-    // Mock registration success
-    toast({
-      title: "Registration Successful",
-      description: `Account created for ${registerData.username}. Please login.`,
-    });
-    
-    // Switch to login form after successful registration
-    setActiveForm('login');
-    setRegisterData({ username: '', email: '', password: '' });
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: `${registerData.phone}@atm.app`,
+        password: registerData.password,
+        options: {
+          data: {
+            phone_number: registerData.phone,
+            location_lat: NARSIPATNAM_COORDS.lat,
+            location_lng: NARSIPATNAM_COORDS.lng
+          },
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Registration Successful",
+        description: `Account created! You can now login.`,
+      });
+      
+      setActiveForm('login');
+      setRegisterData({ phone: '', password: '' });
+    } catch (error: any) {
+      toast({
+        title: "Registration Failed",
+        description: error.message || "Could not create account",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const goBack = () => {
@@ -131,10 +166,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {activeForm === 'login' && (
             <form onSubmit={handleLogin} className="auth-form">
               <input
-                type="text"
-                placeholder="Username"
-                value={loginData.username}
-                onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+                type="tel"
+                placeholder="Phone Number"
+                value={loginData.phone}
+                onChange={(e) => setLoginData({ ...loginData, phone: e.target.value })}
                 required
                 className="login-input"
               />
@@ -146,15 +181,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 required
                 className="login-input"
               />
-              <button type="submit" className="login-btn login-btn-primary">
-                Login
+              <button type="submit" className="login-btn login-btn-primary" disabled={loading}>
+                {loading ? 'Logging in...' : 'Login'}
               </button>
               <button type="button" className="login-back-btn" onClick={goBack}>
                 ⬅ Back
               </button>
-              <div className="demo-info">
-                <p>Demo credentials: admin/admin123</p>
-              </div>
             </form>
           )}
 
@@ -162,31 +194,24 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {activeForm === 'register' && (
             <form onSubmit={handleRegister} className="auth-form">
               <input
-                type="text"
-                placeholder="Username"
-                value={registerData.username}
-                onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
-                required
-                className="login-input"
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={registerData.email}
-                onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                type="tel"
+                placeholder="Phone Number"
+                value={registerData.phone}
+                onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
                 required
                 className="login-input"
               />
               <input
                 type="password"
-                placeholder="Password"
+                placeholder="Password (min 6 characters)"
                 value={registerData.password}
                 onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
                 required
+                minLength={6}
                 className="login-input"
               />
-              <button type="submit" className="login-btn login-btn-secondary">
-                Register
+              <button type="submit" className="login-btn login-btn-secondary" disabled={loading}>
+                {loading ? 'Registering...' : 'Register'}
               </button>
               <button type="button" className="login-back-btn" onClick={goBack}>
                 ⬅ Back
