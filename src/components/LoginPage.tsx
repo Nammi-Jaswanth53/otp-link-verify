@@ -7,9 +7,10 @@ interface LoginPageProps {
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [activeForm, setActiveForm] = useState<'menu' | 'login' | 'register'>('menu');
+  const [activeForm, setActiveForm] = useState<'menu' | 'login' | 'register' | 'reset'>('menu');
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ email: '', password: '' });
+  const [resetEmail, setResetEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const NARSIPATNAM_COORDS = { lat: 17.6667, lng: 82.6167 };
@@ -135,6 +136,35 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Reset Email Sent",
+        description: "Check your email for the password reset link",
+      });
+      
+      setActiveForm('login');
+      setResetEmail('');
+    } catch (error: any) {
+      toast({
+        title: "Reset Failed",
+        description: error.message || "Could not send reset email",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const goBack = () => {
     setActiveForm('menu');
   };
@@ -183,6 +213,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <button type="submit" className="login-btn login-btn-primary" disabled={loading}>
                 {loading ? 'Logging in...' : 'Login'}
               </button>
+              <button 
+                type="button" 
+                className="login-back-btn" 
+                onClick={() => setActiveForm('reset')}
+                style={{ marginTop: '0.5rem' }}
+              >
+                Forgot Password?
+              </button>
               <button type="button" className="login-back-btn" onClick={goBack}>
                 ⬅ Back
               </button>
@@ -214,6 +252,26 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </button>
               <button type="button" className="login-back-btn" onClick={goBack}>
                 ⬅ Back
+              </button>
+            </form>
+          )}
+
+          {/* Reset Password Form */}
+          {activeForm === 'reset' && (
+            <form onSubmit={handleResetPassword} className="auth-form">
+              <input
+                type="email"
+                placeholder="Email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                required
+                className="login-input"
+              />
+              <button type="submit" className="login-btn login-btn-primary" disabled={loading}>
+                {loading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+              <button type="button" className="login-back-btn" onClick={() => setActiveForm('login')}>
+                ⬅ Back to Login
               </button>
             </form>
           )}
