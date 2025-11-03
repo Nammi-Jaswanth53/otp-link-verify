@@ -8,8 +8,8 @@ interface LoginPageProps {
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [activeForm, setActiveForm] = useState<'menu' | 'login' | 'register'>('menu');
-  const [loginData, setLoginData] = useState({ phone: '', password: '' });
-  const [registerData, setRegisterData] = useState({ phone: '', password: '' });
+  const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [registerData, setRegisterData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const NARSIPATNAM_COORDS = { lat: 17.6667, lng: 82.6167 };
@@ -60,7 +60,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: `${loginData.phone}@atm.app`,
+        email: loginData.email,
         password: loginData.password,
       });
 
@@ -104,11 +104,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     
     try {
       const { data, error } = await supabase.auth.signUp({
-        email: `${registerData.phone}@atm.app`,
+        email: registerData.email,
         password: registerData.password,
         options: {
           data: {
-            phone_number: registerData.phone,
             location_lat: NARSIPATNAM_COORDS.lat,
             location_lng: NARSIPATNAM_COORDS.lng
           },
@@ -124,7 +123,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       });
       
       setActiveForm('login');
-      setRegisterData({ phone: '', password: '' });
+      setRegisterData({ email: '', password: '' });
     } catch (error: any) {
       toast({
         title: "Registration Failed",
@@ -166,10 +165,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {activeForm === 'login' && (
             <form onSubmit={handleLogin} className="auth-form">
               <input
-                type="tel"
-                placeholder="Phone Number"
-                value={loginData.phone}
-                onChange={(e) => setLoginData({ ...loginData, phone: e.target.value })}
+                type="email"
+                placeholder="Email"
+                value={loginData.email}
+                onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                 required
                 className="login-input"
               />
@@ -194,10 +193,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {activeForm === 'register' && (
             <form onSubmit={handleRegister} className="auth-form">
               <input
-                type="tel"
-                placeholder="Phone Number"
-                value={registerData.phone}
-                onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
+                type="email"
+                placeholder="Email"
+                value={registerData.email}
+                onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                 required
                 className="login-input"
               />
