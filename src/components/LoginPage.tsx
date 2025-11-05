@@ -194,22 +194,32 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {/* Login Form */}
           {activeForm === 'login' && (
             <form onSubmit={handleLogin} className="auth-form">
-              <input
-                type="email"
-                placeholder="Email"
-                value={loginData.email}
-                onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
-                required
-                className="login-input"
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={loginData.password}
-                onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                required
-                className="login-input"
-              />
+              <div>
+                <input
+                  type="email"
+                  placeholder="Email (e.g., user@example.com)"
+                  value={loginData.email}
+                  onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                  required
+                  className="login-input"
+                />
+                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem', marginBottom: '0.5rem' }}>
+                  Valid email format required
+                </p>
+              </div>
+              <div>
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={loginData.password}
+                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                  required
+                  className="login-input"
+                />
+                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem', marginBottom: '0.5rem' }}>
+                  Enter your password
+                </p>
+              </div>
               <button type="submit" className="login-btn login-btn-primary" disabled={loading}>
                 {loading ? 'Logging in...' : 'Login'}
               </button>
@@ -230,23 +240,34 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {/* Register Form */}
           {activeForm === 'register' && (
             <form onSubmit={handleRegister} className="auth-form">
-              <input
-                type="email"
-                placeholder="Email"
-                value={registerData.email}
-                onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                required
-                className="login-input"
-              />
-              <input
-                type="password"
-                placeholder="Password (min 6 characters)"
-                value={registerData.password}
-                onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                required
-                minLength={6}
-                className="login-input"
-              />
+              <div>
+                <input
+                  type="email"
+                  placeholder="Email (e.g., user@example.com)"
+                  value={registerData.email}
+                  onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                  required
+                  className="login-input"
+                />
+                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem', marginBottom: '0.5rem' }}>
+                  Valid email format required
+                </p>
+              </div>
+              <div>
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={registerData.password}
+                  onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                  required
+                  minLength={6}
+                  className="login-input"
+                />
+                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem', marginBottom: '0.5rem' }}>
+                  • Minimum 6 characters<br/>
+                  • Can include letters, numbers, and special characters
+                </p>
+              </div>
               <button type="submit" className="login-btn login-btn-secondary" disabled={loading}>
                 {loading ? 'Registering...' : 'Register'}
               </button>
@@ -259,14 +280,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {/* Reset Password Form */}
           {activeForm === 'reset' && (
             <form onSubmit={handleResetPassword} className="auth-form">
-              <input
-                type="email"
-                placeholder="Email"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                required
-                className="login-input"
-              />
+              <div>
+                <input
+                  type="email"
+                  placeholder="Email (e.g., user@example.com)"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  required
+                  className="login-input"
+                />
+                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem', marginBottom: '0.5rem' }}>
+                  Enter your registered email address
+                </p>
+              </div>
               <button type="submit" className="login-btn login-btn-primary" disabled={loading}>
                 {loading ? 'Sending...' : 'Send Reset Link'}
               </button>
