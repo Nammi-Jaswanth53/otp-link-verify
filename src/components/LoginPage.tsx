@@ -89,9 +89,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         onLoginSuccess();
       }
     } catch (error: any) {
+      let errorMessage = error.message || "Invalid email or password";
+      
+      // Provide more helpful message for email confirmation issues
+      if (error.message?.includes("Email not confirmed")) {
+        errorMessage = "Please confirm your email first. Check your inbox for the confirmation link, or disable 'Confirm email' in Supabase settings for testing.";
+      }
+      
       toast({
         title: "Login Failed",
-        description: error.message || "Invalid phone number or password",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
