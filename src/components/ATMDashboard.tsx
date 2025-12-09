@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useRequestQueue } from '@/hooks/useRequestQueue';
-import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
   SelectContent,
@@ -128,36 +127,6 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       }
     }
   }, [queue, isWaitingForMatch, myRequestId]);
-
-  // Load bank accounts from database
-  useEffect(() => {
-    const loadBankAccounts = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { data, error } = await supabase
-          .from('bank_accounts')
-          .select('*')
-          .eq('user_id', user.id);
-
-        if (error) throw error;
-
-        const accounts = (data || []).map(acc => ({
-          id: acc.id,
-          bankName: acc.bank_name,
-          accountNumber: acc.account_number,
-          addedDate: new Date(acc.created_at).toLocaleDateString()
-        }));
-
-        setAddedAccounts(accounts);
-      } catch (error) {
-        console.error('Error loading bank accounts:', error);
-      }
-    };
-
-    loadBankAccounts();
-  }, []);
 
   // Mock user data
   const userBalance = 5000;
@@ -312,7 +281,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     setAmount('');
 
     // Check if there's an immediate match
-    const match = await findMatch('withdrawal', requestAmount);
+    const match = findMatch('withdrawal', requestAmount);
 
     if (match) {
       toast({
@@ -335,7 +304,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     } else {
       // No match - add to queue
       const address = await getAddressFromCoords(userLocation.lat, userLocation.lng);
-      const request = await addRequest({
+      const request = addRequest({
         type: 'withdrawal',
         amount: requestAmount,
         userName: 'You',
@@ -370,7 +339,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     setAmount('');
 
     // Check if there's an immediate match
-    const match = await findMatch('deposit', requestAmount);
+    const match = findMatch('deposit', requestAmount);
 
     if (match) {
       toast({
@@ -393,7 +362,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     } else {
       // No match - add to queue
       const address = await getAddressFromCoords(userLocation.lat, userLocation.lng);
-      const request = await addRequest({
+      const request = addRequest({
         type: 'deposit',
         amount: requestAmount,
         userName: 'You',
@@ -411,9 +380,9 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     }
   };
 
-  const handleCancelRequest = async () => {
+  const handleCancelRequest = () => {
     if (myRequestId) {
-      await removeRequest(myRequestId);
+      removeRequest(myRequestId);
       setMyRequestId(null);
       setIsWaitingForMatch(false);
       setNearbyRequests([]);
@@ -453,72 +422,34 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       return;
     }
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+    // Set location automatically
+    await requestLocation();
 
-      // Set location automatically
-      await requestLocation();
+    const newAccount = {
+      id: Date.now().toString(),
+      bankName,
+      accountNumber,
+      addedDate: new Date().toLocaleDateString()
+    };
 
-      const { data, error } = await supabase
-        .from('bank_accounts')
-        .insert({
-          user_id: user.id,
-          bank_name: bankName,
-          account_number: accountNumber
-        })
-        .select()
-        .single();
+    setAddedAccounts(prev => [...prev, newAccount]);
 
-      if (error) throw error;
+    toast({
+      title: "Account Added Successfully",
+      description: `${bankName} account ending in ${accountNumber.slice(-4)} has been linked.`,
+    });
 
-      const newAccount = {
-        id: data.id,
-        bankName: data.bank_name,
-        accountNumber: data.account_number,
-        addedDate: new Date(data.created_at).toLocaleDateString()
-      };
-
-      setAddedAccounts(prev => [...prev, newAccount]);
-
-      toast({
-        title: "Account Added Successfully",
-        description: `${bankName} account ending in ${accountNumber.slice(-4)} has been linked.`,
-      });
-
-      setActiveModal(null);
-      setAccountNumber('');
-      setBankName('');
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Could not add account",
-        variant: "destructive",
-      });
-    }
+    setActiveModal(null);
+    setAccountNumber('');
+    setBankName('');
   };
 
-  const handleRemoveAccount = async (accountId: string) => {
-    try {
-      const { error } = await supabase
-        .from('bank_accounts')
-        .delete()
-        .eq('id', accountId);
-
-      if (error) throw error;
-
-      setAddedAccounts(prev => prev.filter(acc => acc.id !== accountId));
-      toast({
-        title: "Account Removed",
-        description: "Bank account has been removed from your profile.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Could not remove account",
-        variant: "destructive",
-      });
-    }
+  const handleRemoveAccount = (accountId: string) => {
+    setAddedAccounts(prev => prev.filter(acc => acc.id !== accountId));
+    toast({
+      title: "Account Removed",
+      description: "Bank account has been removed from your profile.",
+    });
   };
 
   const sendMessage = () => {
