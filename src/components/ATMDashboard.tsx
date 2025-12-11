@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useRequestQueue } from '@/hooks/useRequestQueue';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
   SelectContent,
@@ -40,7 +41,8 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [pin, setPin] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [bankName, setBankName] = useState('');
-  const [addedAccounts, setAddedAccounts] = useState<Array<{id: string, bankName: string, accountNumber: string, addedDate: string}>>([]);
+  const [addedAccounts, setAddedAccounts] = useState<Array<{id: string, bank_name: string, account_number: string, created_at: string}>>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{sender: string, message: string, time: string, location?: {lat: number, lng: number, address: string}}>>([]);
   const [currentMessage, setCurrentMessage] = useState('');
@@ -84,6 +86,32 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     'AU Small Finance Bank',
     'Equitas Small Finance Bank'
   ];
+
+  // Fetch bank accounts from database
+  const fetchBankAccounts = async () => {
+    setLoadingAccounts(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('bank_accounts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setAddedAccounts(data || []);
+    } catch (error) {
+      console.error('Failed to fetch bank accounts:', error);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBankAccounts();
+  }, []);
 
   useEffect(() => {
     const fetchMapsKey = async () => {
@@ -422,34 +450,67 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       return;
     }
 
-    // Set location automatically
-    await requestLocation();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to add a bank account.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    const newAccount = {
-      id: Date.now().toString(),
-      bankName,
-      accountNumber,
-      addedDate: new Date().toLocaleDateString()
-    };
+      const { error } = await supabase
+        .from('bank_accounts')
+        .insert({
+          user_id: user.id,
+          bank_name: bankName,
+          account_number: accountNumber
+        });
 
-    setAddedAccounts(prev => [...prev, newAccount]);
+      if (error) throw error;
 
-    toast({
-      title: "Account Added Successfully",
-      description: `${bankName} account ending in ${accountNumber.slice(-4)} has been linked.`,
-    });
+      await fetchBankAccounts();
 
-    setActiveModal(null);
-    setAccountNumber('');
-    setBankName('');
+      toast({
+        title: "Account Added Successfully",
+        description: `${bankName} account ending in ${accountNumber.slice(-4)} has been linked.`,
+      });
+
+      setActiveModal(null);
+      setAccountNumber('');
+      setBankName('');
+    } catch (error: any) {
+      toast({
+        title: "Failed to Add Account",
+        description: error.message || "An error occurred while adding the account.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleRemoveAccount = (accountId: string) => {
-    setAddedAccounts(prev => prev.filter(acc => acc.id !== accountId));
-    toast({
-      title: "Account Removed",
-      description: "Bank account has been removed from your profile.",
-    });
+  const handleRemoveAccount = async (accountId: string) => {
+    try {
+      const { error } = await supabase
+        .from('bank_accounts')
+        .delete()
+        .eq('id', accountId);
+
+      if (error) throw error;
+
+      setAddedAccounts(prev => prev.filter(acc => acc.id !== accountId));
+      toast({
+        title: "Account Removed",
+        description: "Bank account has been removed from your profile.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to Remove Account",
+        description: error.message || "An error occurred while removing the account.",
+        variant: "destructive",
+      });
+    }
   };
 
   const sendMessage = () => {
@@ -980,11 +1041,11 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
                       <CreditCard className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm">{account.bankName}</p>
+                      <p className="font-semibold text-sm">{account.bank_name}</p>
                       <p className="text-xs text-muted-foreground">
-                        Account: ****{account.accountNumber.slice(-4)}
+                        Account: ****{account.account_number.slice(-4)}
                       </p>
-                      <p className="text-xs text-muted-foreground">Added: {account.addedDate}</p>
+                      <p className="text-xs text-muted-foreground">Added: {new Date(account.created_at).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <Button
