@@ -14,7 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bank_accounts: {
+        Row: {
+          account_number: string
+          bank_name: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          account_number: string
+          bank_name: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          account_number?: string
+          bank_name?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      matches: {
+        Row: {
+          created_at: string
+          id: string
+          request1_id: string
+          request2_id: string
+          status: string
+          user1_id: string
+          user2_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          request1_id: string
+          request2_id: string
+          status?: string
+          user1_id: string
+          user2_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          request1_id?: string
+          request2_id?: string
+          status?: string
+          user1_id?: string
+          user2_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_request1_id_fkey"
+            columns: ["request1_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_request2_id_fkey"
+            columns: ["request2_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          match_id: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          match_id: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          match_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          location_lat: number
+          location_lng: number
+          phone_number: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          location_lat: number
+          location_lng: number
+          phone_number: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_lat?: number
+          location_lng?: number
+          phone_number?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      requests: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          location_lat: number
+          location_lng: number
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          location_lat: number
+          location_lng: number
+          status?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          location_lat?: number
+          location_lng?: number
+          status?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
