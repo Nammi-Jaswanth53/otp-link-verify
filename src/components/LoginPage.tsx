@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
@@ -8,10 +7,16 @@ interface LoginPageProps {
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [activeForm, setActiveForm] = useState<'menu' | 'login' | 'register'>('menu');
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
-  const [registerData, setRegisterData] = useState({ email: '', password: '', confirmPassword: '' });
-  const [isLoading, setIsLoading] = useState(false);
+  const [loginData, setLoginData] = useState({ username: '', password: '' });
+  const [registerData, setRegisterData] = useState({ username: '', email: '', password: '' });
   const { toast } = useToast();
+
+  // Mock users database
+  const mockUsers = [
+    { username: 'admin', password: 'admin123' },
+    { username: 'user', password: 'user123' },
+    { username: 'demo', password: 'demo123' },
+  ];
 
   const requestLocationPermission = async () => {
     try {
@@ -35,6 +40,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         );
       }
     } catch (error) {
+      // Fallback for browsers that don't support permissions API
       navigator.geolocation.getCurrentPosition(
         () => {
           toast({
@@ -53,91 +59,46 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: loginData.email,
-      password: loginData.password,
-    });
+    const user = mockUsers.find(
+      u => u.username === loginData.username && u.password === loginData.password
+    );
 
-    if (error) {
-      toast({
-        title: "Login Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
-
-    if (data.user) {
+    if (user) {
       toast({
         title: "Login Successful",
-        description: `Welcome back!`,
+        description: `Welcome back, ${loginData.username}!`,
       });
       
+      // Request location permission after successful login
       setTimeout(() => {
         requestLocationPermission();
       }, 500);
       
       onLoginSuccess();
+    } else {
+      toast({
+        title: "Login Failed",
+        description: "Invalid username or password. Try: admin/admin123",
+        variant: "destructive",
+      });
     }
-    setIsLoading(false);
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (registerData.password !== registerData.confirmPassword) {
-      toast({
-        title: "Registration Failed",
-        description: "Passwords do not match",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (registerData.password.length < 6) {
-      toast({
-        title: "Registration Failed",
-        description: "Password must be at least 6 characters",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    
-    const { data, error } = await supabase.auth.signUp({
-      email: registerData.email,
-      password: registerData.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
-      },
+    // Mock registration success
+    toast({
+      title: "Registration Successful",
+      description: `Account created for ${registerData.username}. Please login.`,
     });
-
-    if (error) {
-      toast({
-        title: "Registration Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
-
-    if (data.user) {
-      toast({
-        title: "Registration Successful",
-        description: "Account created! You can now login.",
-      });
-      setActiveForm('login');
-      setLoginData({ email: registerData.email, password: '' });
-      setRegisterData({ email: '', password: '', confirmPassword: '' });
-    }
-    setIsLoading(false);
+    
+    // Switch to login form after successful registration
+    setActiveForm('login');
+    setRegisterData({ username: '', email: '', password: '' });
   };
 
   const goBack = () => {
@@ -170,10 +131,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {activeForm === 'login' && (
             <form onSubmit={handleLogin} className="auth-form">
               <input
-                type="email"
-                placeholder="Email"
-                value={loginData.email}
-                onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                type="text"
+                placeholder="Username"
+                value={loginData.username}
+                onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
                 required
                 className="login-input"
               />
@@ -185,18 +146,29 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 required
                 className="login-input"
               />
-              <button type="submit" className="login-btn login-btn-primary" disabled={isLoading}>
-                {isLoading ? 'Logging in...' : 'Login'}
+              <button type="submit" className="login-btn login-btn-primary">
+                Login
               </button>
-              <button type="button" className="login-back-btn" onClick={goBack} disabled={isLoading}>
+              <button type="button" className="login-back-btn" onClick={goBack}>
                 ⬅ Back
               </button>
+              <div className="demo-info">
+                <p>Demo credentials: admin/admin123</p>
+              </div>
             </form>
           )}
 
           {/* Register Form */}
           {activeForm === 'register' && (
             <form onSubmit={handleRegister} className="auth-form">
+              <input
+                type="text"
+                placeholder="Username"
+                value={registerData.username}
+                onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
+                required
+                className="login-input"
+              />
               <input
                 type="email"
                 placeholder="Email"
@@ -207,24 +179,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               />
               <input
                 type="password"
-                placeholder="Password (min 6 characters)"
+                placeholder="Password"
                 value={registerData.password}
                 onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
                 required
                 className="login-input"
               />
-              <input
-                type="password"
-                placeholder="Confirm Password"
-                value={registerData.confirmPassword}
-                onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                required
-                className="login-input"
-              />
-              <button type="submit" className="login-btn login-btn-secondary" disabled={isLoading}>
-                {isLoading ? 'Registering...' : 'Register'}
+              <button type="submit" className="login-btn login-btn-secondary">
+                Register
               </button>
-              <button type="button" className="login-back-btn" onClick={goBack} disabled={isLoading}>
+              <button type="button" className="login-back-btn" onClick={goBack}>
                 ⬅ Back
               </button>
             </form>
