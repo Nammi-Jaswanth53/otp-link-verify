@@ -790,7 +790,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
               </>
             )}
           </CardContent>
-        </Card>
+        </div>
       </div>
     );
   };
