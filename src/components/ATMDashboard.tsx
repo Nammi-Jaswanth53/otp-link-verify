@@ -523,10 +523,8 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
 
     try {
       const { Map } = await loader.importLibrary("maps");
-      const { AdvancedMarkerElement } = await loader.importLibrary("marker");
 
       if (showAllLocations && userLocation && matchedUserLocation) {
-        // Show both locations
         const bounds = new (window as any).google.maps.LatLngBounds();
         bounds.extend({ lat: userLocation.lat, lng: userLocation.lng });
         bounds.extend({ lat: matchedUserLocation.lat, lng: matchedUserLocation.lng });
@@ -534,41 +532,41 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
         const map = new Map(mapRef.current, {
           center: bounds.getCenter(),
           zoom: 13,
-          mapId: "DEMO_MAP_ID",
         });
 
-        // Create marker for your location
-        const yourMarkerContent = document.createElement('div');
-        yourMarkerContent.innerHTML = `
-          <div style="background: #10b981; color: white; padding: 8px 12px; border-radius: 8px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-            📍 You
-          </div>
-        `;
-        
-        new AdvancedMarkerElement({
-          map: map,
+        // Standard markers (no Map ID required)
+        new (window as any).google.maps.Marker({
+          map,
           position: { lat: userLocation.lat, lng: userLocation.lng },
-          content: yourMarkerContent,
           title: "Your Location",
+          label: { text: "You", color: "#fff", fontWeight: "bold" },
+          icon: {
+            path: (window as any).google.maps.SymbolPath.CIRCLE,
+            scale: 12,
+            fillColor: "#10b981",
+            fillOpacity: 1,
+            strokeColor: "#fff",
+            strokeWeight: 2,
+          },
         });
 
-        // Create marker for matched user
-        const matchedMarkerContent = document.createElement('div');
-        matchedMarkerContent.innerHTML = `
-          <div style="background: #f59e0b; color: white; padding: 8px 12px; border-radius: 8px; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-            📍 ${matchedUser}
-          </div>
-        `;
-        
-        new AdvancedMarkerElement({
-          map: map,
+        new (window as any).google.maps.Marker({
+          map,
           position: { lat: matchedUserLocation.lat, lng: matchedUserLocation.lng },
-          content: matchedMarkerContent,
           title: matchedUserLocation.address,
+          label: { text: matchedUser.charAt(0), color: "#fff", fontWeight: "bold" },
+          icon: {
+            path: (window as any).google.maps.SymbolPath.CIRCLE,
+            scale: 12,
+            fillColor: "#f59e0b",
+            fillOpacity: 1,
+            strokeColor: "#fff",
+            strokeWeight: 2,
+          },
         });
 
         // Draw line between locations
-        const line = new (window as any).google.maps.Polyline({
+        new (window as any).google.maps.Polyline({
           path: [
             { lat: userLocation.lat, lng: userLocation.lng },
             { lat: matchedUserLocation.lat, lng: matchedUserLocation.lng }
@@ -577,20 +575,18 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
           strokeColor: '#3b82f6',
           strokeOpacity: 0.7,
           strokeWeight: 3,
-          map: map,
+          map,
         });
 
         map.fitBounds(bounds);
       } else if (mapLocation) {
-        // Show single location
         const map = new Map(mapRef.current, {
           center: { lat: mapLocation.lat, lng: mapLocation.lng },
           zoom: 15,
-          mapId: "DEMO_MAP_ID",
         });
 
-        new AdvancedMarkerElement({
-          map: map,
+        new (window as any).google.maps.Marker({
+          map,
           position: { lat: mapLocation.lat, lng: mapLocation.lng },
           title: mapLocation.address,
         });
@@ -599,7 +595,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       console.error('Error loading Google Maps:', error);
       toast({
         title: "Map Error",
-        description: "Unable to load Google Maps. Please check your internet connection.",
+        description: "Unable to load Google Maps. Please enable Maps JavaScript API in your Google Cloud Console.",
         variant: "destructive",
       });
     }
