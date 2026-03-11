@@ -796,213 +796,192 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-background p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-foreground">ATM Dashboard</h1>
-          <Button onClick={onLogout} variant="outline" size="sm">
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
-        </div>
+    <div className="min-h-screen relative overflow-hidden" style={{ background: 'var(--gradient-background)' }}>
+      {/* Animated background orbs */}
+      <div className="fixed inset-0 pointer-events-none mesh-gradient" />
+      <div className="fixed top-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[100px] animate-float pointer-events-none" />
+      <div className="fixed bottom-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full bg-accent/10 blur-[100px] animate-float-delayed pointer-events-none" />
+      <div className="fixed top-[40%] right-[20%] w-[300px] h-[300px] rounded-full bg-primary-glow/5 blur-[80px] animate-float pointer-events-none" />
 
-        {/* Pending Request Notification */}
-        {isWaitingForMatch && myRequestId && (
-          <Card className="mb-6 bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 animate-fade-in">
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="animate-pulse">
-                <Bot className="w-8 h-8 text-amber-600" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-amber-900 dark:text-amber-100">
-                  ⏳ Searching for Match...
-                </p>
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  Looking for someone nearby who wants to match your request...
-                </p>
-                {nearbyRequests.length === 0 ? (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
-                    ❌ No one is ready right now. Still waiting...
-                  </p>
-                ) : (
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">
-                    ✅ Found {nearbyRequests.length} nearby user(s) - checking for exact match...
-                  </p>
-                )}
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  🔔 You'll get a notification when someone matches!
-                </p>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={handleCancelRequest}
-                className="text-amber-700 hover:text-amber-900 dark:text-amber-300"
-              >
-                Cancel
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+      <div className="relative z-10 p-4 md:p-8">
+        <div className="max-w-5xl mx-auto">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-8 animate-fade-in">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold gradient-text tracking-tight">ATM Dashboard</h1>
+              <p className="text-muted-foreground text-sm mt-1">Peer-to-peer money exchange • AI-powered matching</p>
+            </div>
+            <Button 
+              onClick={onLogout} 
+              variant="outline" 
+              size="sm"
+              className="glass border-border/50 hover:border-primary/30 hover:shadow-soft"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
 
-        {/* Nearby Waiting Users */}
-        {isWaitingForMatch && nearbyRequests.length > 0 && (
-          <Card className="mb-6 border-blue-200 dark:border-blue-800">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="w-5 h-5" />
-                Nearby Users Waiting ({nearbyRequests.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {nearbyRequests.map((req, idx) => (
-                <div key={req.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <MapPin className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="font-medium text-sm">{req.userName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Wants to {req.type} ${req.amount} • {req.distance.toFixed(1)}km away
-                      </p>
-                      <p className="text-xs text-muted-foreground">{req.location.address}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    {Math.round((Date.now() - req.timestamp) / 1000)}s ago
-                  </div>
+          {/* Balance Card */}
+          <div className="mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+            <div className="glass-card p-6 md:p-8 rounded-2xl glow-ring">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-muted-foreground text-sm font-medium uppercase tracking-wider">Total Balance</p>
+                  <p className="text-4xl md:text-5xl font-bold mt-2 gradient-text">${userBalance.toLocaleString()}</p>
+                  <p className="text-muted-foreground text-xs mt-2 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" /> Narsipatnam, Anakapalli District
+                  </p>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card className="hover:shadow-medium transition-smooth cursor-pointer" onClick={() => setActiveModal('withdrawal')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mb-2">
-                <ArrowDownLeft className="w-6 h-6 text-destructive" />
+                <div className="icon-bubble w-16 h-16 rounded-2xl">
+                  <DollarSign className="w-8 h-8 text-primary-foreground" />
+                </div>
               </div>
-              <CardTitle className="text-lg">Withdrawal</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-center">
-                Request money and get connected with nearby depositors
-              </p>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="hover:shadow-medium transition-smooth cursor-pointer" onClick={() => setActiveModal('deposit')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto w-12 h-12 bg-success/10 rounded-full flex items-center justify-center mb-2">
-                <ArrowUpRight className="w-6 h-6 text-success" />
-              </div>
-              <CardTitle className="text-lg">Deposit</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-center">
-                Offer money and get connected with nearby withdrawers
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-medium transition-smooth cursor-pointer" onClick={() => setActiveModal('history')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-2">
-                <History className="w-6 h-6 text-primary" />
-              </div>
-              <CardTitle className="text-lg">Transaction History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-center">
-                View all your past transactions and transfers
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-medium transition-smooth cursor-pointer" onClick={() => setActiveModal('balance')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto w-12 h-12 bg-warning/10 rounded-full flex items-center justify-center mb-2">
-                <DollarSign className="w-6 h-6 text-warning" />
-              </div>
-              <CardTitle className="text-lg">Check Balance</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-center">
-                Securely view your current account balance
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-medium transition-smooth cursor-pointer" onClick={() => setActiveModal('addAccount')}>
-            <CardHeader className="text-center">
-              <div className="mx-auto w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mb-2">
-                <Plus className="w-6 h-6 text-accent-foreground" />
-              </div>
-              <CardTitle className="text-lg">Add Account</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-center">
-                Link a new bank account to your profile
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-medium transition-smooth cursor-pointer" onClick={onLogout}>
-            <CardHeader className="text-center">
-              <div className="mx-auto w-12 h-12 bg-muted/10 rounded-full flex items-center justify-center mb-2">
-                <LogOut className="w-6 h-6 text-muted-foreground" />
-              </div>
-              <CardTitle className="text-lg">Logout</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-center">
-                Securely sign out of your account
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Added Bank Accounts Section */}
-        {addedAccounts.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Your Bank Accounts ({addedAccounts.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {addedAccounts.map((account) => (
-                <div key={account.id} className="flex items-center justify-between p-4 bg-muted rounded-lg hover:bg-muted/80 transition-smooth">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <CreditCard className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm">{account.bankName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Account: ****{account.accountNumber.slice(-4)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Added: {account.addedDate}</p>
+          {/* Pending Request Notification */}
+          {isWaitingForMatch && myRequestId && (
+            <div className="mb-6 animate-fade-in">
+              <div className="glass-card p-4 rounded-2xl border-warning/30" style={{ boxShadow: '0 0 30px -5px hsl(38 92% 50% / 0.15)' }}>
+                <div className="flex items-center gap-4">
+                  <div className="animate-pulse-glow">
+                    <div className="w-12 h-12 rounded-2xl bg-warning/15 flex items-center justify-center">
+                      <Bot className="w-6 h-6 text-warning" />
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground">
+                      ⏳ Searching for Match...
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Looking for someone nearby who wants to match your request...
+                    </p>
+                    {nearbyRequests.length === 0 ? (
+                      <p className="text-xs text-destructive mt-1 font-medium">
+                        ❌ No one is ready right now. Still waiting...
+                      </p>
+                    ) : (
+                      <p className="text-xs text-success mt-1 font-medium">
+                        ✅ Found {nearbyRequests.length} nearby user(s) - checking for exact match...
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      🔔 You'll get a notification when someone matches!
+                    </p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
                     size="sm"
-                    onClick={() => handleRemoveAccount(account.id)}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={handleCancelRequest}
+                    className="text-muted-foreground hover:text-foreground hover:bg-destructive/10"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    Cancel
                   </Button>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+              </div>
+            </div>
+          )}
 
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          <p>🤖 AI-powered peer-to-peer money exchange within 5km radius</p>
+          {/* Nearby Waiting Users */}
+          {isWaitingForMatch && nearbyRequests.length > 0 && (
+            <div className="mb-6 animate-fade-in">
+              <div className="glass-card p-5 rounded-2xl border-primary/20">
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-3">
+                  <Users className="w-5 h-5 text-primary" />
+                  Nearby Users Waiting ({nearbyRequests.length})
+                </h3>
+                <div className="space-y-2">
+                  {nearbyRequests.map((req) => (
+                    <div key={req.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50 hover:border-primary/20 transition-all duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <MapPin className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{req.userName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Wants to {req.type} ${req.amount} • {req.distance.toFixed(1)}km away
+                          </p>
+                          <p className="text-xs text-muted-foreground">{req.location.address}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        {Math.round((Date.now() - req.timestamp) / 1000)}s ago
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Action Cards Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            {[
+              { id: 'withdrawal', icon: ArrowDownLeft, label: 'Withdraw', desc: 'Get matched with depositors', gradient: 'from-destructive/80 to-destructive', iconBg: 'bg-destructive/15', iconColor: 'text-destructive', delay: '0.15s' },
+              { id: 'deposit', icon: ArrowUpRight, label: 'Deposit', desc: 'Get matched with withdrawers', gradient: 'from-success/80 to-success', iconBg: 'bg-success/15', iconColor: 'text-success', delay: '0.2s' },
+              { id: 'history', icon: History, label: 'History', desc: 'View past transactions', gradient: 'from-primary/80 to-primary', iconBg: 'bg-primary/15', iconColor: 'text-primary', delay: '0.25s' },
+              { id: 'balance', icon: Shield, label: 'Balance', desc: 'Check account balance', gradient: 'from-warning/80 to-warning', iconBg: 'bg-warning/15', iconColor: 'text-warning', delay: '0.3s' },
+              { id: 'addAccount', icon: Plus, label: 'Add Account', desc: 'Link a bank account', gradient: 'from-accent/80 to-accent', iconBg: 'bg-accent/15', iconColor: 'text-accent', delay: '0.35s' },
+              { id: 'logout', icon: LogOut, label: 'Logout', desc: 'Sign out securely', gradient: 'from-muted-foreground/80 to-muted-foreground', iconBg: 'bg-muted/50', iconColor: 'text-muted-foreground', delay: '0.4s' },
+            ].map((item) => (
+              <div
+                key={item.id}
+                onClick={() => item.id === 'logout' ? onLogout() : setActiveModal(item.id)}
+                className="glass-card p-5 rounded-2xl cursor-pointer group animate-slide-up"
+                style={{ animationDelay: item.delay }}
+              >
+                <div className={`w-12 h-12 rounded-2xl ${item.iconBg} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300`}>
+                  <item.icon className={`w-6 h-6 ${item.iconColor}`} />
+                </div>
+                <h3 className="font-semibold text-foreground text-sm">{item.label}</h3>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Added Bank Accounts Section */}
+          {addedAccounts.length > 0 && (
+            <div className="animate-fade-in mb-8">
+              <div className="glass-card p-5 rounded-2xl">
+                <h3 className="flex items-center gap-2 font-semibold mb-4">
+                  <CreditCard className="w-5 h-5 text-primary" />
+                  Your Bank Accounts ({addedAccounts.length})
+                </h3>
+                <div className="space-y-3">
+                  {addedAccounts.map((account) => (
+                    <div key={account.id} className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/50 hover:border-primary/20 transition-all duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <CreditCard className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm">{account.bankName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            ****{account.accountNumber.slice(-4)} • Added {account.addedDate}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveAccount(account.id)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xl"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="text-center text-xs text-muted-foreground pb-8">
+            <p>🤖 AI-powered peer-to-peer money exchange within 5km radius</p>
+          </div>
         </div>
       </div>
 
@@ -1011,24 +990,24 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
 
       {/* Chat Window */}
       {showChat && (
-        <div className="fixed bottom-4 right-4 w-80 h-[32rem] bg-background border rounded-lg shadow-lg z-50 flex flex-col">
-          <div className="flex items-center justify-between p-4 border-b">
-            <h3 className="font-semibold">Chat with {matchedUser}</h3>
-            <div className="flex gap-2">
+        <div className="fixed bottom-4 right-4 w-80 h-[32rem] glass-card rounded-2xl shadow-strong z-50 flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-border/50" style={{ background: 'var(--gradient-primary)', borderRadius: 'var(--radius) var(--radius) 0 0' }}>
+            <h3 className="font-semibold text-primary-foreground text-sm">Chat with {matchedUser}</h3>
+            <div className="flex gap-1">
               <Button 
-                variant="outline" 
+                variant="ghost" 
                 size="sm" 
                 onClick={handleShowAllLocations}
-                className="text-xs"
+                className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 text-xs h-7 px-2"
               >
                 <MapPin className="w-3 h-3 mr-1" />
-                View Map
+                Map
               </Button>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setShowChat(false)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 h-7 w-7 p-0"
               >
                 ×
               </Button>
@@ -1038,18 +1017,18 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {chatMessages.map((msg, index) => (
               <div key={index} className={`flex ${msg.sender === 'You' ? 'justify-end' : 'justify-start'}`}>
-                 <div className={`max-w-[70%] p-3 rounded-lg ${
+                 <div className={`max-w-[75%] p-3 rounded-2xl ${
                    msg.sender === 'You' 
-                     ? 'bg-primary text-primary-foreground' 
+                     ? 'bg-primary text-primary-foreground rounded-br-md' 
                      : msg.sender === 'Bot'
-                     ? 'bg-accent text-accent-foreground'
-                     : 'bg-muted text-muted-foreground'
+                     ? 'bg-muted/60 text-foreground rounded-bl-md'
+                     : 'bg-accent/15 text-foreground rounded-bl-md'
                  }`}>
-                   <p className="text-sm">
+                   <p className="text-sm leading-relaxed">
                      {msg.location && msg.message.includes('📍') ? (
                        <button 
                          onClick={() => handleLocationClick(msg.location!)}
-                         className="text-blue-500 hover:text-blue-700 underline cursor-pointer"
+                         className="text-primary hover:text-primary/80 underline underline-offset-2 cursor-pointer"
                        >
                          {msg.message}
                        </button>
@@ -1057,22 +1036,22 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
                        msg.message
                      )}
                    </p>
-                   <p className="text-xs opacity-70 mt-1">{msg.time}</p>
+                   <p className="text-[10px] opacity-60 mt-1">{msg.time}</p>
                  </div>
               </div>
             ))}
           </div>
           
-          <div className="p-4 border-t">
+          <div className="p-3 border-t border-border/50">
             <div className="flex gap-2">
               <Input
                 value={currentMessage}
                 onChange={(e) => setCurrentMessage(e.target.value)}
                 placeholder="Type a message..."
                 onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                className="flex-1"
+                className="flex-1 rounded-xl bg-muted/30 border-border/50 focus:border-primary/50 text-sm"
               />
-              <Button onClick={sendMessage} size="sm">
+              <Button onClick={sendMessage} size="sm" className="rounded-xl px-4" style={{ background: 'var(--gradient-primary)' }}>
                 Send
               </Button>
             </div>
