@@ -619,12 +619,12 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       : null;
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <Card className="w-full max-w-2xl">
-          <CardHeader className="flex flex-row items-center justify-between">
+      <div className="fixed inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+        <div className="glass-card w-full max-w-2xl rounded-2xl shadow-strong">
+          <CardHeader className="flex flex-row items-center justify-between p-5">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <MapPin className="w-5 h-5" />
+                <MapPin className="w-5 h-5 text-primary" />
                 {showAllLocations ? 'Both Locations' : `Location: ${mapLocation?.address}`}
               </CardTitle>
               {distance && (
@@ -636,14 +636,14 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
             <Button variant="ghost" size="sm" onClick={() => {
               setShowMap(false);
               setShowAllLocations(false);
-            }}>
+            }} className="rounded-xl">
               <X className="w-4 h-4" />
             </Button>
           </CardHeader>
-          <CardContent className="p-0">
-            <div ref={mapRef} className="w-full h-96 rounded-b-lg" />
-          </CardContent>
-        </Card>
+          <div className="p-0">
+            <div ref={mapRef} className="w-full h-96 rounded-b-2xl" />
+          </div>
+        </div>
       </div>
     );
   };
