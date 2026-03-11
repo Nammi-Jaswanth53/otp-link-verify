@@ -652,9 +652,9 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     if (!activeModal) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <Card className="w-full max-w-md">
-          <CardHeader>
+      <div className="fixed inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+        <div className="glass-card w-full max-w-md rounded-2xl shadow-strong">
+          <CardHeader className="p-5 pb-2">
             <CardTitle className="flex items-center gap-2">
               {activeModal === 'withdrawal' && <ArrowDownLeft className="w-5 h-5" />}
               {activeModal === 'deposit' && <ArrowUpRight className="w-5 h-5" />}
