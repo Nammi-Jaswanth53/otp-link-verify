@@ -7,9 +7,10 @@ interface LoginPageProps {
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [activeForm, setActiveForm] = useState<'menu' | 'login' | 'register'>('menu');
+  const [activeForm, setActiveForm] = useState<'menu' | 'login' | 'register' | 'forgot'>('menu');
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ username: '', email: '', password: '' });
+  const [forgotEmail, setForgotEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -30,10 +31,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setLoading(false);
 
     if (error) {
-      toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
+      const msg = error.message.toLowerCase();
+      if (msg.includes('invalid') || msg.includes('credentials') || msg.includes('password')) {
+        toast({ title: 'Wrong Password', description: 'The email or password you entered is incorrect.', variant: 'destructive' });
+      } else if (msg.includes('confirm')) {
+        toast({ title: 'Email Not Confirmed', description: 'Please confirm your email before logging in.', variant: 'destructive' });
+      } else {
+        toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
+      }
       return;
     }
-    toast({ title: 'Login Successful', description: `Welcome back!` });
+    toast({ title: 'Login Successful', description: 'Welcome back!' });
     setTimeout(requestLocationPermission, 500);
     onLoginSuccess();
   };
@@ -42,7 +50,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     e.preventDefault();
     setLoading(true);
     const redirectUrl = `${window.location.origin}/`;
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: registerData.email,
       password: registerData.password,
       options: {
@@ -55,7 +63,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     if (error) {
       const msg = error.message.toLowerCase();
       if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
-        toast({ title: 'Already Registered', description: 'This email is already registered. Please login.', variant: 'destructive' });
+        toast({ title: 'Already Registered', description: 'This email is already registered. Please login instead.', variant: 'destructive' });
         setActiveForm('login');
         setLoginData({ email: registerData.email, password: '' });
       } else {
@@ -64,10 +72,35 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       return;
     }
 
+    // Supabase returns success with empty identities array when email already exists (security feature)
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      toast({ title: 'Already Registered', description: 'This email is already registered. Please login instead.', variant: 'destructive' });
+      setActiveForm('login');
+      setLoginData({ email: registerData.email, password: '' });
+      return;
+    }
+
     toast({ title: 'Registration Successful', description: `Account created for ${registerData.username}. Please login.` });
     setActiveForm('login');
     setLoginData({ email: registerData.email, password: '' });
     setRegisterData({ username: '', email: '', password: '' });
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+
+    if (error) {
+      toast({ title: 'Reset Failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Email Sent', description: 'Check your inbox for a password reset link.' });
+    setActiveForm('login');
+    setForgotEmail('');
   };
 
   const goBack = () => setActiveForm('menu');
@@ -92,6 +125,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <button type="submit" disabled={loading} className="login-btn login-btn-primary">
                 {loading ? 'Logging in...' : 'Login'}
               </button>
+              <button type="button" className="login-back-btn" onClick={() => setActiveForm('forgot')} style={{ background: 'transparent', border: 'none', color: '#fff', textDecoration: 'underline', cursor: 'pointer', marginTop: '8px' }}>
+                Forgot Password?
+              </button>
               <button type="button" className="login-back-btn" onClick={goBack}>⬅ Back</button>
             </form>
           )}
@@ -108,6 +144,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 {loading ? 'Registering...' : 'Register'}
               </button>
               <button type="button" className="login-back-btn" onClick={goBack}>⬅ Back</button>
+            </form>
+          )}
+
+          {activeForm === 'forgot' && (
+            <form onSubmit={handleForgotPassword} className="auth-form">
+              <p style={{ color: '#fff', textAlign: 'center', marginBottom: '12px', fontSize: '14px' }}>
+                Enter your email and we'll send you a reset link.
+              </p>
+              <input type="email" placeholder="Email" value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)} required className="login-input" />
+              <button type="submit" disabled={loading} className="login-btn login-btn-primary">
+                {loading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+              <button type="button" className="login-back-btn" onClick={() => setActiveForm('login')}>⬅ Back to Login</button>
             </form>
           )}
         </div>
