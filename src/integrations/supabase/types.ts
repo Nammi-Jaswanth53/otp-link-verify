@@ -150,6 +150,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          balance: number
           created_at: string
           id: string
           location_lat: number
@@ -158,6 +159,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          balance?: number
           created_at?: string
           id: string
           location_lat: number
@@ -166,6 +168,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          balance?: number
           created_at?: string
           id?: string
           location_lat?: number
@@ -180,31 +183,37 @@ export type Database = {
           amount: number
           created_at: string
           id: string
+          location_address: string
           location_lat: number
           location_lng: number
           status: string
           type: string
           user_id: string
+          user_name: string
         }
         Insert: {
           amount: number
           created_at?: string
           id?: string
+          location_address?: string
           location_lat: number
           location_lng: number
           status?: string
           type: string
           user_id: string
+          user_name?: string
         }
         Update: {
           amount?: number
           created_at?: string
           id?: string
+          location_address?: string
           location_lat?: number
           location_lng?: number
           status?: string
           type?: string
           user_id?: string
+          user_name?: string
         }
         Relationships: []
       }
