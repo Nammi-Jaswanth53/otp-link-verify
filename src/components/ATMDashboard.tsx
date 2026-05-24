@@ -408,21 +408,28 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     }
   };
 
-  const handleCheckBalance = () => {
-    if (pin !== '1234') {
-      toast({
-        title: "Invalid PIN",
-        description: "Please enter the correct PIN.",
-        variant: "destructive",
-      });
+  const handleCheckBalance = async () => {
+    // Balance is retrieved server-side via authenticated RLS-protected query.
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      toast({ title: 'Not signed in', variant: 'destructive' });
       return;
     }
-
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('balance')
+      .eq('id', userData.user.id)
+      .maybeSingle();
+    if (error || !profile) {
+      toast({ title: 'Failed to load balance', variant: 'destructive' });
+      return;
+    }
+    setUserBalance(Number(profile.balance));
     toast({
-      title: "Current Balance",
-      description: `Your account balance is $${userBalance.toLocaleString()}`,
+      title: 'Current Balance',
+      description: `Your account balance is $${Number(profile.balance).toLocaleString()}`,
     });
-
     setActiveModal(null);
     setPin('');
   };
