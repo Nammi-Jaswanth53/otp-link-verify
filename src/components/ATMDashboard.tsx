@@ -88,11 +88,10 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   useEffect(() => {
     const fetchMapsKey = async () => {
       try {
-        const response = await fetch('https://htpzmrwvgtucfzgqviov.supabase.co/functions/v1/get-maps-key');
-        const data = await response.json();
-        if (data.apiKey) {
-          setMapsApiKey(data.apiKey);
-        }
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data, error } = await supabase.functions.invoke('get-maps-key');
+        if (error) throw error;
+        if (data?.apiKey) setMapsApiKey(data.apiKey);
       } catch (error) {
         console.error('Failed to fetch Maps API key:', error);
       }
