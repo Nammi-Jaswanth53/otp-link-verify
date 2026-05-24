@@ -377,12 +377,13 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     } else {
       // No match - add to queue
       const address = await getAddressFromCoords(userLocation.lat, userLocation.lng);
-      const request = addRequest({
+      const request = await addRequest({
         type: 'deposit',
         amount: requestAmount,
         userName: 'You',
         location: { lat: userLocation.lat, lng: userLocation.lng, address }
       });
+      if (!request) return;
 
       setMyRequestId(request.id);
       setIsWaitingForMatch(true);
