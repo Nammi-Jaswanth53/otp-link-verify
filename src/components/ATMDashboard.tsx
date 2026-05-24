@@ -88,11 +88,10 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   useEffect(() => {
     const fetchMapsKey = async () => {
       try {
-        const response = await fetch('https://htpzmrwvgtucfzgqviov.supabase.co/functions/v1/get-maps-key');
-        const data = await response.json();
-        if (data.apiKey) {
-          setMapsApiKey(data.apiKey);
-        }
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data, error } = await supabase.functions.invoke('get-maps-key');
+        if (error) throw error;
+        if (data?.apiKey) setMapsApiKey(data.apiKey);
       } catch (error) {
         console.error('Failed to fetch Maps API key:', error);
       }
@@ -128,13 +127,27 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     }
   }, [queue, isWaitingForMatch, myRequestId]);
 
-  // Mock user data
-  const userBalance = 5000;
+  const [userBalance, setUserBalance] = useState<number>(0);
   const transactions = [
     { id: 1, type: 'deposit', amount: 1000, date: '2024-01-15', status: 'completed' },
     { id: 2, type: 'withdrawal', amount: 500, date: '2024-01-14', status: 'completed' },
     { id: 3, type: 'deposit', amount: 2000, date: '2024-01-13', status: 'completed' },
   ];
+
+  // Fetch balance from server (authenticated, RLS-protected)
+  useEffect(() => {
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase.auth.getUser().then(async ({ data }) => {
+        if (!data.user) return;
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('balance')
+          .eq('id', data.user.id)
+          .maybeSingle();
+        if (profile) setUserBalance(Number(profile.balance));
+      });
+    });
+  }, []);
 
   const generateNearbyLocation = (centerLat: number, centerLng: number, distanceKm: number) => {
     // Generate random distance between 2-3 km
@@ -304,12 +317,13 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     } else {
       // No match - add to queue
       const address = await getAddressFromCoords(userLocation.lat, userLocation.lng);
-      const request = addRequest({
+      const request = await addRequest({
         type: 'withdrawal',
         amount: requestAmount,
         userName: 'You',
         location: { lat: userLocation.lat, lng: userLocation.lng, address }
       });
+      if (!request) return;
 
       setMyRequestId(request.id);
       setIsWaitingForMatch(true);
@@ -362,12 +376,13 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     } else {
       // No match - add to queue
       const address = await getAddressFromCoords(userLocation.lat, userLocation.lng);
-      const request = addRequest({
+      const request = await addRequest({
         type: 'deposit',
         amount: requestAmount,
         userName: 'You',
         location: { lat: userLocation.lat, lng: userLocation.lng, address }
       });
+      if (!request) return;
 
       setMyRequestId(request.id);
       setIsWaitingForMatch(true);
@@ -393,21 +408,28 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     }
   };
 
-  const handleCheckBalance = () => {
-    if (pin !== '1234') {
-      toast({
-        title: "Invalid PIN",
-        description: "Please enter the correct PIN.",
-        variant: "destructive",
-      });
+  const handleCheckBalance = async () => {
+    // Balance is retrieved server-side via authenticated RLS-protected query.
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      toast({ title: 'Not signed in', variant: 'destructive' });
       return;
     }
-
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('balance')
+      .eq('id', userData.user.id)
+      .maybeSingle();
+    if (error || !profile) {
+      toast({ title: 'Failed to load balance', variant: 'destructive' });
+      return;
+    }
+    setUserBalance(Number(profile.balance));
     toast({
-      title: "Current Balance",
-      description: `Your account balance is $${userBalance.toLocaleString()}`,
+      title: 'Current Balance',
+      description: `Your account balance is $${Number(profile.balance).toLocaleString()}`,
     });
-
     setActiveModal(null);
     setPin('');
   };
@@ -694,26 +716,17 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
 
             {activeModal === 'balance' && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="pin">Enter PIN</Label>
-                  <Input
-                    id="pin"
-                    type="password"
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value)}
-                    placeholder="Enter your PIN"
-                    maxLength={4}
-                  />
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Your balance is fetched securely from your account.
+                </p>
                 <div className="flex gap-2">
                   <Button onClick={handleCheckBalance} className="flex-1">
-                    Check Balance
+                    Show Balance
                   </Button>
                   <Button variant="outline" onClick={() => setActiveModal(null)}>
                     Cancel
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground text-center">Demo PIN: 1234</p>
               </>
             )}
 
