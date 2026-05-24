@@ -716,26 +716,17 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
 
             {activeModal === 'balance' && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="pin">Enter PIN</Label>
-                  <Input
-                    id="pin"
-                    type="password"
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value)}
-                    placeholder="Enter your PIN"
-                    maxLength={4}
-                  />
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Your balance is fetched securely from your account.
+                </p>
                 <div className="flex gap-2">
                   <Button onClick={handleCheckBalance} className="flex-1">
-                    Check Balance
+                    Show Balance
                   </Button>
                   <Button variant="outline" onClick={() => setActiveModal(null)}>
                     Cancel
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground text-center">Demo PIN: 1234</p>
               </>
             )}
 
