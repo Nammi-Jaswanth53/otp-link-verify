@@ -128,13 +128,27 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     }
   }, [queue, isWaitingForMatch, myRequestId]);
 
-  // Mock user data
-  const userBalance = 5000;
+  const [userBalance, setUserBalance] = useState<number>(0);
   const transactions = [
     { id: 1, type: 'deposit', amount: 1000, date: '2024-01-15', status: 'completed' },
     { id: 2, type: 'withdrawal', amount: 500, date: '2024-01-14', status: 'completed' },
     { id: 3, type: 'deposit', amount: 2000, date: '2024-01-13', status: 'completed' },
   ];
+
+  // Fetch balance from server (authenticated, RLS-protected)
+  useEffect(() => {
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase.auth.getUser().then(async ({ data }) => {
+        if (!data.user) return;
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('balance')
+          .eq('id', data.user.id)
+          .maybeSingle();
+        if (profile) setUserBalance(Number(profile.balance));
+      });
+    });
+  }, []);
 
   const generateNearbyLocation = (centerLat: number, centerLng: number, distanceKm: number) => {
     // Generate random distance between 2-3 km
