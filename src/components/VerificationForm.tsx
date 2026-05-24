@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Shield, Clock, RefreshCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VerificationFormProps {
   onVerificationSuccess?: () => void;
@@ -15,23 +16,14 @@ const VerificationForm: React.FC<VerificationFormProps> = ({ onVerificationSucce
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'input' | 'otp'>('input');
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [timeLeft, setTimeLeft] = useState(300);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-
-  // Mock database of linked accounts
-  const linkedAccounts = [
-    { account: '1234567890', phone: '+1234567890' },
-    { account: '0987654321', phone: '+0987654321' },
-    { account: '1122334455', phone: '+1122334455' },
-  ];
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (step === 'otp' && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
+      interval = setInterval(() => setTimeLeft((p) => p - 1), 1000);
     }
     return () => clearInterval(interval);
   }, [step, timeLeft]);
@@ -44,104 +36,66 @@ const VerificationForm: React.FC<VerificationFormProps> = ({ onVerificationSucce
 
   const validateInputs = () => {
     if (!accountNumber.trim()) {
-      toast({
-        title: "Account Number Required",
-        description: "Please enter your account number.",
-        variant: "destructive",
-      });
+      toast({ title: 'Account Number Required', description: 'Please enter your account number.', variant: 'destructive' });
       return false;
     }
-
-    if (!phoneNumber.trim()) {
-      toast({
-        title: "Phone Number Required", 
-        description: "Please enter your phone number.",
-        variant: "destructive",
-      });
+    if (!/^\+\d{8,15}$/.test(phoneNumber.trim())) {
+      toast({ title: 'Invalid Phone', description: 'Enter phone in E.164 format e.g. +911234567890', variant: 'destructive' });
       return false;
     }
+    return true;
+  };
 
-    const isLinked = linkedAccounts.some(
-      (account) => account.account === accountNumber && account.phone === phoneNumber
-    );
-
-    if (!isLinked) {
-      toast({
-        title: "Account Not Linked",
-        description: "The account number and phone number are not linked. Please check your details.",
-        variant: "destructive",
-      });
+  const sendOtp = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase.functions.invoke('send-otp', {
+      body: { phone_number: phoneNumber.trim() },
+    });
+    setIsLoading(false);
+    if (error || (data as any)?.error) {
+      const msg = (data as any)?.error || error?.message || 'Failed to send OTP';
+      toast({ title: 'Send Failed', description: msg, variant: 'destructive' });
       return false;
     }
-
+    toast({ title: 'OTP Sent', description: `Code sent to ${phoneNumber}` });
     return true;
   };
 
   const handleSendOtp = async () => {
     if (!validateInputs()) return;
-
-    setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    setStep('otp');
-    setTimeLeft(60);
-    setIsLoading(false);
-    
-    toast({
-      title: "OTP Sent Successfully",
-      description: `Verification code sent to ${phoneNumber}`,
-    });
+    const ok = await sendOtp();
+    if (ok) {
+      setStep('otp');
+      setTimeLeft(300);
+    }
   };
 
   const handleVerifyOtp = async () => {
-    if (!otp.trim() || otp.length !== 6) {
-      toast({
-        title: "Invalid OTP",
-        description: "Please enter a valid 6-digit OTP.",
-        variant: "destructive",
-      });
+    if (otp.length !== 6) {
+      toast({ title: 'Invalid OTP', description: 'Enter the 6-digit code.', variant: 'destructive' });
       return;
     }
-
     setIsLoading(true);
-    
-    // Simulate OTP verification
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    // Mock verification logic (123456 is the correct OTP)
-    if (otp === '123456') {
-      toast({
-        title: "Verification Successful",
-        description: "Your account has been verified successfully!",
-      });
-      onVerificationSuccess?.();
-    } else {
-      toast({
-        title: "Invalid OTP",
-        description: "The OTP entered is incorrect. Please try again.",
-        variant: "destructive",
-      });
-    }
-    
+    const { data, error } = await supabase.functions.invoke('verify-otp', { body: { code: otp } });
     setIsLoading(false);
+    if (error || (data as any)?.error) {
+      const msg = (data as any)?.error || error?.message || 'Verification failed';
+      toast({ title: 'Verification Failed', description: msg, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Verified', description: 'Your account has been verified.' });
+    onVerificationSuccess?.();
   };
 
-  const handleResendOtp = () => {
-    setTimeLeft(60);
-    toast({
-      title: "OTP Resent",
-      description: `New verification code sent to ${phoneNumber}`,
-    });
+  const handleResendOtp = async () => {
+    const ok = await sendOtp();
+    if (ok) setTimeLeft(300);
   };
 
   const resetForm = () => {
     setStep('input');
-    setAccountNumber('');
-    setPhoneNumber('');
     setOtp('');
-    setTimeLeft(60);
+    setTimeLeft(300);
   };
 
   return (
@@ -155,113 +109,48 @@ const VerificationForm: React.FC<VerificationFormProps> = ({ onVerificationSucce
             {step === 'input' ? 'Account Verification' : 'Enter OTP'}
           </CardTitle>
           <p className="text-muted-foreground">
-            {step === 'input' 
-              ? 'Please enter your account details to verify your identity'
-              : `Enter the 6-digit code sent to ${phoneNumber}`
-            }
+            {step === 'input'
+              ? 'Enter your account number and phone number to receive a verification code'
+              : `Enter the 6-digit code sent to ${phoneNumber}`}
           </p>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           {step === 'input' ? (
             <>
               <div className="space-y-2">
-                <Label htmlFor="account" className="text-sm font-medium">
-                  Account Number
-                </Label>
-                <Input
-                  id="account"
-                  type="text"
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value)}
-                  placeholder="Enter your account number"
-                  className="h-11"
-                />
+                <Label htmlFor="account">Account Number</Label>
+                <Input id="account" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="Enter your account number" className="h-11" />
               </div>
-              
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-medium">
-                  Phone Number
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="Enter your phone number"
-                  className="h-11"
-                />
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input id="phone" type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="+911234567890" className="h-11" />
+                <p className="text-xs text-muted-foreground">Include country code (E.164 format)</p>
               </div>
-              
-              <Button
-                onClick={handleSendOtp}
-                disabled={isLoading}
-                className="w-full h-11 bg-gradient-primary hover:opacity-90 transition-smooth"
-              >
-                {isLoading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                ) : null}
+              <Button onClick={handleSendOtp} disabled={isLoading} className="w-full h-11 bg-gradient-primary hover:opacity-90 transition-smooth">
+                {isLoading && <RefreshCw className="w-4 h-4 animate-spin mr-2" />}
                 {isLoading ? 'Sending OTP...' : 'Send OTP'}
               </Button>
-              
-              <div className="text-xs text-muted-foreground text-center">
-                <p>Demo accounts: Account: 1234567890, Phone: +1234567890</p>
-              </div>
             </>
           ) : (
             <>
               <div className="space-y-2">
-                <Label htmlFor="otp" className="text-sm font-medium">
-                  Verification Code
-                </Label>
-                <Input
-                  id="otp"
-                  type="text"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="Enter 6-digit OTP"
-                  className="h-11 text-center text-lg tracking-widest"
-                  maxLength={6}
-                />
+                <Label htmlFor="otp">Verification Code</Label>
+                <Input id="otp" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code" className="h-11 text-center text-lg tracking-widest" maxLength={6} />
               </div>
-              
               <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
                 <Clock className="w-4 h-4" />
                 <span>Time remaining: {formatTime(timeLeft)}</span>
               </div>
-              
-              <Button
-                onClick={handleVerifyOtp}
-                disabled={isLoading || otp.length !== 6}
-                className="w-full h-11 bg-gradient-primary hover:opacity-90 transition-smooth"
-              >
-                {isLoading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                ) : null}
+              <Button onClick={handleVerifyOtp} disabled={isLoading || otp.length !== 6} className="w-full h-11 bg-gradient-primary hover:opacity-90 transition-smooth">
+                {isLoading && <RefreshCw className="w-4 h-4 animate-spin mr-2" />}
                 {isLoading ? 'Verifying...' : 'Verify OTP'}
               </Button>
-              
               {timeLeft === 0 ? (
-                <Button
-                  onClick={handleResendOtp}
-                  variant="outline"
-                  className="w-full h-11"
-                >
-                  Resend OTP
-                </Button>
+                <Button onClick={handleResendOtp} variant="outline" className="w-full h-11">Resend OTP</Button>
               ) : (
-                <Button
-                  onClick={resetForm}
-                  variant="ghost"
-                  className="w-full h-11"
-                >
-                  Back to Account Details
-                </Button>
+                <Button onClick={resetForm} variant="ghost" className="w-full h-11">Back to Account Details</Button>
               )}
-              
-              <div className="text-xs text-muted-foreground text-center">
-                <p>Demo OTP: 123456</p>
-              </div>
             </>
           )}
         </CardContent>
