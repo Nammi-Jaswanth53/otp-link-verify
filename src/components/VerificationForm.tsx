@@ -35,8 +35,8 @@ const VerificationForm: React.FC<VerificationFormProps> = ({ onVerificationSucce
   };
 
   const validateInputs = () => {
-    if (!accountNumber.trim()) {
-      toast({ title: 'Account Number Required', description: 'Please enter your account number.', variant: 'destructive' });
+    if (!/^\d{9,18}$/.test(accountNumber.trim())) {
+      toast({ title: 'Invalid Account Number', description: 'Account number must be 9 to 18 digits.', variant: 'destructive' });
       return false;
     }
     if (!/^\+\d{8,15}$/.test(phoneNumber.trim())) {
@@ -120,7 +120,8 @@ const VerificationForm: React.FC<VerificationFormProps> = ({ onVerificationSucce
             <>
               <div className="space-y-2">
                 <Label htmlFor="account">Account Number</Label>
-                <Input id="account" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="Enter your account number" className="h-11" />
+                <Input id="account" inputMode="numeric" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 18))} placeholder="e.g. 123456789012" className="h-11" />
+                <p className="text-xs text-muted-foreground">9 to 18 digits, numbers only</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
