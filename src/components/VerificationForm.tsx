@@ -49,7 +49,7 @@ const VerificationForm: React.FC<VerificationFormProps> = ({ onVerificationSucce
   const sendOtp = async () => {
     setIsLoading(true);
     const { data, error } = await supabase.functions.invoke('send-otp', {
-      body: { phone_number: phoneNumber.trim() },
+      body: { phone_number: phoneNumber.trim(), account_number: accountNumber.trim() },
     });
     setIsLoading(false);
     if (error || (data as any)?.error) {
