@@ -80,9 +80,6 @@ Deno.serve(async (req) => {
       user_id: userId, phone_number: phone, code_hash: codeHash, expires_at: expiresAt,
     });
     if (insErr) throw new Error('Failed to store OTP: ' + insErr.message);
-      user_id: userId, phone_number: phone, code_hash: codeHash, expires_at: expiresAt,
-    });
-    if (insErr) throw new Error('Failed to store OTP: ' + insErr.message);
 
     const twilioRes = await fetch(`${GATEWAY_URL}/Messages.json`, {
       method: 'POST',
