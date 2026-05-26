@@ -20,6 +20,7 @@ export type Database = {
           bank_name: string
           created_at: string
           id: string
+          phone_number: string | null
           user_id: string
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           bank_name: string
           created_at?: string
           id?: string
+          phone_number?: string | null
           user_id: string
         }
         Update: {
@@ -34,6 +36,7 @@ export type Database = {
           bank_name?: string
           created_at?: string
           id?: string
+          phone_number?: string | null
           user_id?: string
         }
         Relationships: []
