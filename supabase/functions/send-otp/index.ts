@@ -42,9 +42,33 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const phone = String(body.phone_number || '').trim();
+    const accountNumber = String(body.account_number || '').trim();
     if (!/^\+\d{8,15}$/.test(phone)) {
       return new Response(JSON.stringify({ error: 'Invalid phone. Use E.164 format like +911234567890' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (!/^\d{9,18}$/.test(accountNumber)) {
+      return new Response(JSON.stringify({ error: 'Invalid account number. Must be 9 to 18 digits.' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    const { data: linked, error: linkErr } = await admin
+      .from('bank_accounts')
+      .select('id')
+      .eq('account_number', accountNumber)
+      .eq('phone_number', phone)
+      .maybeSingle();
+    if (linkErr) throw new Error('Lookup failed: ' + linkErr.message);
+    if (!linked) {
+      return new Response(JSON.stringify({ error: 'This phone number is not linked to the provided account number.' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
