@@ -76,11 +76,10 @@ Deno.serve(async (req) => {
     const codeHash = await sha256(code);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
     const { error: insErr } = await admin.from('otp_codes').insert({
+      user_id: userId, phone_number: phone, code_hash: codeHash, expires_at: expiresAt,
+    });
+    if (insErr) throw new Error('Failed to store OTP: ' + insErr.message);
       user_id: userId, phone_number: phone, code_hash: codeHash, expires_at: expiresAt,
     });
     if (insErr) throw new Error('Failed to store OTP: ' + insErr.message);
