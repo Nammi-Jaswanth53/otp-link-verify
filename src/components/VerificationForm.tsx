@@ -52,8 +52,16 @@ const VerificationForm: React.FC<VerificationFormProps> = ({ onVerificationSucce
       body: { phone_number: phoneNumber.trim(), account_number: accountNumber.trim() },
     });
     setIsLoading(false);
-    if (error || (data as any)?.error) {
-      const msg = (data as any)?.error || error?.message || 'Failed to send OTP';
+    let msg = (data as any)?.error as string | undefined;
+    if (!msg && error) {
+      // Try to read the real error body from non-2xx responses
+      const ctx = (error as any).context;
+      if (ctx && typeof ctx.json === 'function') {
+        try { msg = (await ctx.json())?.error; } catch { /* ignore */ }
+      }
+      msg = msg || error.message;
+    }
+    if (msg) {
       toast({ title: 'Send Failed', description: msg, variant: 'destructive' });
       return false;
     }
