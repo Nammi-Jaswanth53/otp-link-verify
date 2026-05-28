@@ -1134,7 +1134,51 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
               </div>
             ))}
           </div>
-          
+
+          {activeMatch && (
+            <div className="p-3 border-t border-border/50 bg-muted/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Confirm Cash Exchange
+                </p>
+                <div className="flex gap-1 text-[10px]">
+                  <span className={`px-2 py-0.5 rounded-full ${myConfirmed ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground'}`}>
+                    You {myConfirmed ? '✓' : '…'}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full ${partnerConfirmed ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground'}`}>
+                    {matchedUser.split(' ')[0]} {partnerConfirmed ? '✓' : '…'}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {activeMatch.type === 'deposit'
+                  ? `Receive $${activeMatch.amount} cash from ${matchedUser}, send via UPI.`
+                  : `Hand $${activeMatch.amount} cash to ${matchedUser}, receive via UPI.`}
+              </p>
+              {!txFinalized ? (
+                <div className="flex gap-2">
+                  <Input
+                    value={txReference}
+                    onChange={(e) => setTxReference(e.target.value)}
+                    placeholder="UPI / Txn Ref ID"
+                    disabled={myConfirmed}
+                    className="flex-1 rounded-xl bg-background border-border/50 text-xs h-8"
+                  />
+                  <Button
+                    onClick={handleMyConfirm}
+                    disabled={myConfirmed}
+                    size="sm"
+                    className="rounded-xl text-xs h-8"
+                  >
+                    {myConfirmed ? 'Waiting…' : 'I Paid / Received'}
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-success font-medium">✅ Transaction completed and recorded.</p>
+              )}
+            </div>
+          )}
+
           <div className="p-3 border-t border-border/50">
             <div className="flex gap-2">
               <Input
