@@ -250,6 +250,16 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     setMatchedUser(matchedRequest.userName);
     setMatchedUserLocation(matchedRequest.location);
     setShowChat(true);
+    // Initialize confirmation flow for this match
+    setActiveMatch({
+      type: myRequest.type as 'withdrawal' | 'deposit',
+      amount: Number(myRequest.amount),
+      partner: matchedRequest.userName,
+    });
+    setTxReference('');
+    setMyConfirmed(false);
+    setPartnerConfirmed(false);
+    setTxFinalized(false);
     
     const messages = [
       {sender: 'Bot', message: `🎉 MATCH FOUND! ${matchedRequest.userName} wants to ${matchedRequest.type === 'withdrawal' ? 'withdraw' : 'deposit'} $${matchedRequest.amount}.`, time: new Date().toLocaleTimeString()},
