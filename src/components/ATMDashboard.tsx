@@ -516,6 +516,10 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
         sender: matchedUser,
         message: replies[Math.floor(Math.random() * replies.length)],
         time: new Date().toLocaleTimeString()
+      };
+
+      setChatMessages(prev => [...prev, reply]);
+    }, 1500);
   };
 
   const finalizeTransaction = async (ref: string) => {
@@ -575,7 +579,6 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       message: `✅ I've completed the transaction. Ref: ${txReference}`,
       time: new Date().toLocaleTimeString(),
     }]);
-    // Simulate partner confirming a moment later
     setTimeout(() => {
       setPartnerConfirmed(true);
       setChatMessages(prev => [...prev, {
@@ -585,10 +588,6 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       }]);
       finalizeTransaction(txReference);
     }, 2000);
-  };
-      
-      setChatMessages(prev => [...prev, reply]);
-    }, 1500);
   };
 
   const handleLocationClick = (location: {lat: number, lng: number, address: string}) => {
