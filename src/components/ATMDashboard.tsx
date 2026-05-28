@@ -57,6 +57,12 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [myRequestId, setMyRequestId] = useState<string | null>(null);
   const [isWaitingForMatch, setIsWaitingForMatch] = useState(false);
   const [nearbyRequests, setNearbyRequests] = useState<any[]>([]);
+  // Transaction confirmation flow
+  const [activeMatch, setActiveMatch] = useState<{ type: 'withdrawal' | 'deposit'; amount: number; partner: string } | null>(null);
+  const [txReference, setTxReference] = useState('');
+  const [myConfirmed, setMyConfirmed] = useState(false);
+  const [partnerConfirmed, setPartnerConfirmed] = useState(false);
+  const [txFinalized, setTxFinalized] = useState(false);
   const { toast } = useToast();
   const { queue, addRequest, removeRequest, findMatch, getNearbyRequests } = useRequestQueue();
 
@@ -244,6 +250,16 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     setMatchedUser(matchedRequest.userName);
     setMatchedUserLocation(matchedRequest.location);
     setShowChat(true);
+    // Initialize confirmation flow for this match
+    setActiveMatch({
+      type: myRequest.type as 'withdrawal' | 'deposit',
+      amount: Number(myRequest.amount),
+      partner: matchedRequest.userName,
+    });
+    setTxReference('');
+    setMyConfirmed(false);
+    setPartnerConfirmed(false);
+    setTxFinalized(false);
     
     const messages = [
       {sender: 'Bot', message: `🎉 MATCH FOUND! ${matchedRequest.userName} wants to ${matchedRequest.type === 'withdrawal' ? 'withdraw' : 'deposit'} $${matchedRequest.amount}.`, time: new Date().toLocaleTimeString()},
@@ -501,9 +517,77 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
         message: replies[Math.floor(Math.random() * replies.length)],
         time: new Date().toLocaleTimeString()
       };
-      
+
       setChatMessages(prev => [...prev, reply]);
     }, 1500);
+  };
+
+  const finalizeTransaction = async (ref: string) => {
+    if (!activeMatch) return;
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        toast({ title: 'Not signed in', variant: 'destructive' });
+        return;
+      }
+      const delta = activeMatch.type === 'deposit' ? activeMatch.amount : -activeMatch.amount;
+      const newBalance = Number(userBalance) + delta;
+
+      const { error: updErr } = await supabase
+        .from('profiles')
+        .update({ balance: newBalance })
+        .eq('id', userData.user.id);
+      if (updErr) throw updErr;
+
+      const { error: insErr } = await supabase.from('transactions').insert({
+        user_id: userData.user.id,
+        partner_name: activeMatch.partner,
+        type: activeMatch.type,
+        amount: activeMatch.amount,
+        reference_id: ref || null,
+        status: 'completed',
+      });
+      if (insErr) throw insErr;
+
+      setUserBalance(newBalance);
+      setTxFinalized(true);
+      setChatMessages(prev => [...prev, {
+        sender: 'Bot',
+        message: `✅ Transaction completed! Ref: ${ref || 'N/A'}. New balance: $${newBalance.toLocaleString()}`,
+        time: new Date().toLocaleTimeString(),
+      }]);
+      toast({
+        title: '✅ Transaction Completed',
+        description: `Balance updated. ${activeMatch.type === 'deposit' ? '+' : '-'}$${activeMatch.amount}`,
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: 'Failed to finalize transaction', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleMyConfirm = () => {
+    if (!txReference.trim()) {
+      toast({ title: 'Reference required', description: 'Enter the UPI/transaction reference ID first.', variant: 'destructive' });
+      return;
+    }
+    if (myConfirmed) return;
+    setMyConfirmed(true);
+    setChatMessages(prev => [...prev, {
+      sender: 'You',
+      message: `✅ I've completed the transaction. Ref: ${txReference}`,
+      time: new Date().toLocaleTimeString(),
+    }]);
+    setTimeout(() => {
+      setPartnerConfirmed(true);
+      setChatMessages(prev => [...prev, {
+        sender: matchedUser,
+        message: `✅ Confirmed on my side too!`,
+        time: new Date().toLocaleTimeString(),
+      }]);
+      finalizeTransaction(txReference);
+    }, 2000);
   };
 
   const handleLocationClick = (location: {lat: number, lng: number, address: string}) => {
@@ -1050,7 +1134,51 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
               </div>
             ))}
           </div>
-          
+
+          {activeMatch && (
+            <div className="p-3 border-t border-border/50 bg-muted/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Confirm Cash Exchange
+                </p>
+                <div className="flex gap-1 text-[10px]">
+                  <span className={`px-2 py-0.5 rounded-full ${myConfirmed ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground'}`}>
+                    You {myConfirmed ? '✓' : '…'}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full ${partnerConfirmed ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground'}`}>
+                    {matchedUser.split(' ')[0]} {partnerConfirmed ? '✓' : '…'}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {activeMatch.type === 'deposit'
+                  ? `Receive $${activeMatch.amount} cash from ${matchedUser}, send via UPI.`
+                  : `Hand $${activeMatch.amount} cash to ${matchedUser}, receive via UPI.`}
+              </p>
+              {!txFinalized ? (
+                <div className="flex gap-2">
+                  <Input
+                    value={txReference}
+                    onChange={(e) => setTxReference(e.target.value)}
+                    placeholder="UPI / Txn Ref ID"
+                    disabled={myConfirmed}
+                    className="flex-1 rounded-xl bg-background border-border/50 text-xs h-8"
+                  />
+                  <Button
+                    onClick={handleMyConfirm}
+                    disabled={myConfirmed}
+                    size="sm"
+                    className="rounded-xl text-xs h-8"
+                  >
+                    {myConfirmed ? 'Waiting…' : 'I Paid / Received'}
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-success font-medium">✅ Transaction completed and recorded.</p>
+              )}
+            </div>
+          )}
+
           <div className="p-3 border-t border-border/50">
             <div className="flex gap-2">
               <Input
