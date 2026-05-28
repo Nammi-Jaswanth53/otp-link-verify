@@ -516,7 +516,76 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
         sender: matchedUser,
         message: replies[Math.floor(Math.random() * replies.length)],
         time: new Date().toLocaleTimeString()
-      };
+  };
+
+  const finalizeTransaction = async (ref: string) => {
+    if (!activeMatch) return;
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        toast({ title: 'Not signed in', variant: 'destructive' });
+        return;
+      }
+      const delta = activeMatch.type === 'deposit' ? activeMatch.amount : -activeMatch.amount;
+      const newBalance = Number(userBalance) + delta;
+
+      const { error: updErr } = await supabase
+        .from('profiles')
+        .update({ balance: newBalance })
+        .eq('id', userData.user.id);
+      if (updErr) throw updErr;
+
+      const { error: insErr } = await supabase.from('transactions').insert({
+        user_id: userData.user.id,
+        partner_name: activeMatch.partner,
+        type: activeMatch.type,
+        amount: activeMatch.amount,
+        reference_id: ref || null,
+        status: 'completed',
+      });
+      if (insErr) throw insErr;
+
+      setUserBalance(newBalance);
+      setTxFinalized(true);
+      setChatMessages(prev => [...prev, {
+        sender: 'Bot',
+        message: `✅ Transaction completed! Ref: ${ref || 'N/A'}. New balance: $${newBalance.toLocaleString()}`,
+        time: new Date().toLocaleTimeString(),
+      }]);
+      toast({
+        title: '✅ Transaction Completed',
+        description: `Balance updated. ${activeMatch.type === 'deposit' ? '+' : '-'}$${activeMatch.amount}`,
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: 'Failed to finalize transaction', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleMyConfirm = () => {
+    if (!txReference.trim()) {
+      toast({ title: 'Reference required', description: 'Enter the UPI/transaction reference ID first.', variant: 'destructive' });
+      return;
+    }
+    if (myConfirmed) return;
+    setMyConfirmed(true);
+    setChatMessages(prev => [...prev, {
+      sender: 'You',
+      message: `✅ I've completed the transaction. Ref: ${txReference}`,
+      time: new Date().toLocaleTimeString(),
+    }]);
+    // Simulate partner confirming a moment later
+    setTimeout(() => {
+      setPartnerConfirmed(true);
+      setChatMessages(prev => [...prev, {
+        sender: matchedUser,
+        message: `✅ Confirmed on my side too!`,
+        time: new Date().toLocaleTimeString(),
+      }]);
+      finalizeTransaction(txReference);
+    }, 2000);
+  };
       
       setChatMessages(prev => [...prev, reply]);
     }, 1500);
