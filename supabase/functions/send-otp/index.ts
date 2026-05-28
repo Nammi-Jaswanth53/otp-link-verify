@@ -59,17 +59,36 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const { data: linked, error: linkErr } = await admin
+    // Look up any existing record for this account number OR this phone number
+    const { data: existing, error: lookupErr } = await admin
       .from('bank_accounts')
-      .select('id')
-      .eq('account_number', accountNumber)
-      .eq('phone_number', phone)
-      .maybeSingle();
-    if (linkErr) throw new Error('Lookup failed: ' + linkErr.message);
-    if (!linked) {
-      return new Response(JSON.stringify({ error: 'This phone number is not linked to the provided account number.' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      .select('id, account_number, phone_number')
+      .or(`account_number.eq.${accountNumber},phone_number.eq.${phone}`);
+    if (lookupErr) throw new Error('Lookup failed: ' + lookupErr.message);
+
+    const exactMatch = existing?.find(
+      (r) => r.account_number === accountNumber && r.phone_number === phone
+    );
+
+    if (!exactMatch) {
+      // If account exists with a different phone, or phone exists with a different account → reject
+      const conflict = existing && existing.length > 0;
+      if (conflict) {
+        return new Response(JSON.stringify({
+          error: 'This phone number is not linked to the provided account number.',
+        }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // First-time pair — register it now (trust-on-first-use; OTP proves phone ownership)
+      const { error: insBankErr } = await admin.from('bank_accounts').insert({
+        user_id: userId,
+        account_number: accountNumber,
+        phone_number: phone,
+        bank_name: 'Unknown',
       });
+      if (insBankErr) throw new Error('Failed to register account: ' + insBankErr.message);
     }
 
     const code = String(Math.floor(100000 + Math.random() * 900000));
