@@ -58,10 +58,16 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [isWaitingForMatch, setIsWaitingForMatch] = useState(false);
   const [nearbyRequests, setNearbyRequests] = useState<any[]>([]);
   // Transaction confirmation flow
-  const [activeMatch, setActiveMatch] = useState<{ type: 'withdrawal' | 'deposit'; amount: number; partner: string } | null>(null);
+  const [activeMatch, setActiveMatch] = useState<{ type: 'withdrawal' | 'deposit'; amount: number; partner: string; partnerUserId?: string } | null>(null);
   const [txReference, setTxReference] = useState('');
   const [myConfirmed, setMyConfirmed] = useState(false);
   const [partnerConfirmed, setPartnerConfirmed] = useState(false);
+  const [ratingStars, setRatingStars] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
   const [txFinalized, setTxFinalized] = useState(false);
   const { toast } = useToast();
   const { queue, addRequest, removeRequest, findMatch, getNearbyRequests } = useRequestQueue();
