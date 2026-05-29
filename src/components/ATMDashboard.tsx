@@ -261,11 +261,15 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       type: myRequest.type as 'withdrawal' | 'deposit',
       amount: Number(myRequest.amount),
       partner: matchedRequest.userName,
+      partnerUserId: matchedRequest.userId,
     });
     setTxReference('');
     setMyConfirmed(false);
     setPartnerConfirmed(false);
     setTxFinalized(false);
+    setRatingStars(0);
+    setRatingComment('');
+    setRatingSubmitted(false);
     
     const messages = [
       {sender: 'Bot', message: `🎉 MATCH FOUND! ${matchedRequest.userName} wants to ${matchedRequest.type === 'withdrawal' ? 'withdraw' : 'deposit'} $${matchedRequest.amount}.`, time: new Date().toLocaleTimeString()},
