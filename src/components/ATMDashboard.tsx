@@ -600,6 +600,63 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     }, 2000);
   };
 
+  const submitRating = async () => {
+    if (!activeMatch?.partnerUserId) {
+      toast({ title: 'Partner not identified', variant: 'destructive' });
+      return;
+    }
+    if (ratingStars < 1) {
+      toast({ title: 'Please select a star rating', variant: 'destructive' });
+      return;
+    }
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { error } = await supabase.from('ratings').insert({
+        rater_id: userData.user.id,
+        rated_user_id: activeMatch.partnerUserId,
+        stars: ratingStars,
+        comment: ratingComment.trim() || null,
+      });
+      if (error) throw error;
+      setRatingSubmitted(true);
+      toast({ title: '⭐ Rating submitted', description: 'Thanks for keeping the community safe!' });
+    } catch (err: any) {
+      toast({ title: 'Rating failed', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const submitReport = async () => {
+    if (!activeMatch?.partnerUserId) {
+      toast({ title: 'Partner not identified', variant: 'destructive' });
+      return;
+    }
+    if (!reportReason) {
+      toast({ title: 'Please select a reason', variant: 'destructive' });
+      return;
+    }
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { error } = await supabase.from('reports').insert({
+        reporter_id: userData.user.id,
+        reported_user_id: activeMatch.partnerUserId,
+        reason: reportReason,
+        details: reportDetails.trim() || null,
+      });
+      if (error) throw error;
+      setShowReportDialog(false);
+      setReportReason('');
+      setReportDetails('');
+      toast({ title: '🚩 Report submitted', description: 'Our team will review this shortly.' });
+    } catch (err: any) {
+      toast({ title: 'Report failed', description: err.message, variant: 'destructive' });
+    }
+  };
+
+
   const handleLocationClick = (location: {lat: number, lng: number, address: string}) => {
     setMapLocation(location);
     setShowMap(true);
