@@ -1303,6 +1303,47 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
           </div>
         </div>
       )}
+
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Report {activeMatch?.partner || 'user'}</DialogTitle>
+            <DialogDescription>
+              Reports are reviewed by our trust & safety team. False reports may affect your account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Reason</Label>
+              <Select value={reportReason} onValueChange={setReportReason}>
+                <SelectTrigger><SelectValue placeholder="Select a reason" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no_show">Didn't show up</SelectItem>
+                  <SelectItem value="payment_not_received">Payment not received</SelectItem>
+                  <SelectItem value="cash_not_received">Cash not received</SelectItem>
+                  <SelectItem value="fraud">Suspected fraud / scam</SelectItem>
+                  <SelectItem value="harassment">Harassment or abuse</SelectItem>
+                  <SelectItem value="unsafe">Felt unsafe during meetup</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Details (optional)</Label>
+              <Textarea
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value.slice(0, 500))}
+                placeholder="What happened?"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowReportDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={submitReport}>Submit Report</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
