@@ -1241,7 +1241,52 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
                   </Button>
                 </div>
               ) : (
-                <p className="text-xs text-success font-medium">✅ Transaction completed and recorded.</p>
+                <div className="space-y-2">
+                  <p className="text-xs text-success font-medium">✅ Transaction completed and recorded.</p>
+                  {!ratingSubmitted ? (
+                    <div className="space-y-2 rounded-xl bg-background/60 p-2 border border-border/40">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Rate {matchedUser.split(' ')[0]}
+                      </p>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setRatingStars(n)}
+                            className={`text-lg leading-none transition-transform hover:scale-110 ${
+                              n <= ratingStars ? 'text-yellow-400' : 'text-muted-foreground/40'
+                            }`}
+                            aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                          >
+                            ★
+                          </button>
+                        ))}
+                      </div>
+                      <Input
+                        value={ratingComment}
+                        onChange={(e) => setRatingComment(e.target.value.slice(0, 200))}
+                        placeholder="Optional comment"
+                        className="rounded-xl bg-background border-border/50 text-xs h-8"
+                      />
+                      <div className="flex gap-2">
+                        <Button onClick={submitRating} size="sm" className="flex-1 rounded-xl text-xs h-8">
+                          Submit Rating
+                        </Button>
+                        <Button
+                          onClick={() => setShowReportDialog(true)}
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl text-xs h-8 text-destructive border-destructive/30 hover:bg-destructive/10"
+                        >
+                          🚩 Report
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">⭐ Thanks for your feedback.</p>
+                  )}
+                </div>
               )}
             </div>
           )}
