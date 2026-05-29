@@ -3,15 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useRequestQueue } from '@/hooks/useRequestQueue';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { 
   ArrowDownLeft, 
   ArrowUpRight, 
@@ -58,10 +54,16 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [isWaitingForMatch, setIsWaitingForMatch] = useState(false);
   const [nearbyRequests, setNearbyRequests] = useState<any[]>([]);
   // Transaction confirmation flow
-  const [activeMatch, setActiveMatch] = useState<{ type: 'withdrawal' | 'deposit'; amount: number; partner: string } | null>(null);
+  const [activeMatch, setActiveMatch] = useState<{ type: 'withdrawal' | 'deposit'; amount: number; partner: string; partnerUserId?: string } | null>(null);
   const [txReference, setTxReference] = useState('');
   const [myConfirmed, setMyConfirmed] = useState(false);
   const [partnerConfirmed, setPartnerConfirmed] = useState(false);
+  const [ratingStars, setRatingStars] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
   const [txFinalized, setTxFinalized] = useState(false);
   const { toast } = useToast();
   const { queue, addRequest, removeRequest, findMatch, getNearbyRequests } = useRequestQueue();
@@ -255,11 +257,15 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       type: myRequest.type as 'withdrawal' | 'deposit',
       amount: Number(myRequest.amount),
       partner: matchedRequest.userName,
+      partnerUserId: matchedRequest.userId,
     });
     setTxReference('');
     setMyConfirmed(false);
     setPartnerConfirmed(false);
     setTxFinalized(false);
+    setRatingStars(0);
+    setRatingComment('');
+    setRatingSubmitted(false);
     
     const messages = [
       {sender: 'Bot', message: `🎉 MATCH FOUND! ${matchedRequest.userName} wants to ${matchedRequest.type === 'withdrawal' ? 'withdraw' : 'deposit'} $${matchedRequest.amount}.`, time: new Date().toLocaleTimeString()},
@@ -589,6 +595,63 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       finalizeTransaction(txReference);
     }, 2000);
   };
+
+  const submitRating = async () => {
+    if (!activeMatch?.partnerUserId) {
+      toast({ title: 'Partner not identified', variant: 'destructive' });
+      return;
+    }
+    if (ratingStars < 1) {
+      toast({ title: 'Please select a star rating', variant: 'destructive' });
+      return;
+    }
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { error } = await supabase.from('ratings').insert({
+        rater_id: userData.user.id,
+        rated_user_id: activeMatch.partnerUserId,
+        stars: ratingStars,
+        comment: ratingComment.trim() || null,
+      });
+      if (error) throw error;
+      setRatingSubmitted(true);
+      toast({ title: '⭐ Rating submitted', description: 'Thanks for keeping the community safe!' });
+    } catch (err: any) {
+      toast({ title: 'Rating failed', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const submitReport = async () => {
+    if (!activeMatch?.partnerUserId) {
+      toast({ title: 'Partner not identified', variant: 'destructive' });
+      return;
+    }
+    if (!reportReason) {
+      toast({ title: 'Please select a reason', variant: 'destructive' });
+      return;
+    }
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { error } = await supabase.from('reports').insert({
+        reporter_id: userData.user.id,
+        reported_user_id: activeMatch.partnerUserId,
+        reason: reportReason,
+        details: reportDetails.trim() || null,
+      });
+      if (error) throw error;
+      setShowReportDialog(false);
+      setReportReason('');
+      setReportDetails('');
+      toast({ title: '🚩 Report submitted', description: 'Our team will review this shortly.' });
+    } catch (err: any) {
+      toast({ title: 'Report failed', description: err.message, variant: 'destructive' });
+    }
+  };
+
 
   const handleLocationClick = (location: {lat: number, lng: number, address: string}) => {
     setMapLocation(location);
@@ -1174,7 +1237,52 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
                   </Button>
                 </div>
               ) : (
-                <p className="text-xs text-success font-medium">✅ Transaction completed and recorded.</p>
+                <div className="space-y-2">
+                  <p className="text-xs text-success font-medium">✅ Transaction completed and recorded.</p>
+                  {!ratingSubmitted ? (
+                    <div className="space-y-2 rounded-xl bg-background/60 p-2 border border-border/40">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Rate {matchedUser.split(' ')[0]}
+                      </p>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setRatingStars(n)}
+                            className={`text-lg leading-none transition-transform hover:scale-110 ${
+                              n <= ratingStars ? 'text-yellow-400' : 'text-muted-foreground/40'
+                            }`}
+                            aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                          >
+                            ★
+                          </button>
+                        ))}
+                      </div>
+                      <Input
+                        value={ratingComment}
+                        onChange={(e) => setRatingComment(e.target.value.slice(0, 200))}
+                        placeholder="Optional comment"
+                        className="rounded-xl bg-background border-border/50 text-xs h-8"
+                      />
+                      <div className="flex gap-2">
+                        <Button onClick={submitRating} size="sm" className="flex-1 rounded-xl text-xs h-8">
+                          Submit Rating
+                        </Button>
+                        <Button
+                          onClick={() => setShowReportDialog(true)}
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl text-xs h-8 text-destructive border-destructive/30 hover:bg-destructive/10"
+                        >
+                          🚩 Report
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">⭐ Thanks for your feedback.</p>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -1195,6 +1303,47 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
           </div>
         </div>
       )}
+
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Report {activeMatch?.partner || 'user'}</DialogTitle>
+            <DialogDescription>
+              Reports are reviewed by our trust & safety team. False reports may affect your account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Reason</Label>
+              <Select value={reportReason} onValueChange={setReportReason}>
+                <SelectTrigger><SelectValue placeholder="Select a reason" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no_show">Didn't show up</SelectItem>
+                  <SelectItem value="payment_not_received">Payment not received</SelectItem>
+                  <SelectItem value="cash_not_received">Cash not received</SelectItem>
+                  <SelectItem value="fraud">Suspected fraud / scam</SelectItem>
+                  <SelectItem value="harassment">Harassment or abuse</SelectItem>
+                  <SelectItem value="unsafe">Felt unsafe during meetup</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Details (optional)</Label>
+              <Textarea
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value.slice(0, 500))}
+                placeholder="What happened?"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowReportDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={submitReport}>Submit Report</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

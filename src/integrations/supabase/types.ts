@@ -181,6 +181,69 @@ export type Database = {
         }
         Relationships: []
       }
+      ratings: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          match_id: string | null
+          rated_user_id: string
+          rater_id: string
+          stars: number
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          match_id?: string | null
+          rated_user_id: string
+          rater_id: string
+          stars: number
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          match_id?: string | null
+          rated_user_id?: string
+          rater_id?: string
+          stars?: number
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          match_id: string | null
+          reason: string
+          reported_user_id: string
+          reporter_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          match_id?: string | null
+          reason: string
+          reported_user_id: string
+          reporter_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          match_id?: string | null
+          reason?: string
+          reported_user_id?: string
+          reporter_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       requests: {
         Row: {
           amount: number
