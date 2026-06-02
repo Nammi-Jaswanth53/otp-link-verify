@@ -1073,6 +1073,33 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
             </Button>
           </div>
 
+          {/* Notification permission banner */}
+          {notifPermission === 'default' && !notifBannerDismissed && (
+            <div className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/10 backdrop-blur-xl p-4 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-lg">🔔</div>
+                <div>
+                  <p className="text-sm font-semibold">Enable notifications</p>
+                  <p className="text-xs text-muted-foreground">Get instant alerts when you're matched or receive a message.</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={dismissNotifBanner}>Not now</Button>
+                <Button size="sm" onClick={enableNotifications}>Enable</Button>
+              </div>
+            </div>
+          )}
+          {notifPermission === 'denied' && !notifBannerDismissed && (
+            <div className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 backdrop-blur-xl p-4 animate-fade-in">
+              <p className="text-xs text-muted-foreground">
+                🔕 Notifications are blocked. Enable them in your browser site settings to get match alerts.
+              </p>
+              <Button size="sm" variant="ghost" onClick={dismissNotifBanner}>Dismiss</Button>
+            </div>
+          )}
+
+
+
           {/* Balance Card */}
           <div className="mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
             <div className="glass-card p-6 md:p-8 rounded-2xl glow-ring">
