@@ -532,30 +532,18 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     if (!activeMatch) return;
     try {
       const { supabase } = await import('@/integrations/supabase/client');
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        toast({ title: 'Not signed in', variant: 'destructive' });
-        return;
-      }
-      const delta = activeMatch.type === 'deposit' ? activeMatch.amount : -activeMatch.amount;
-      const newBalance = Number(userBalance) + delta;
-
-      const { error: updErr } = await supabase
-        .from('profiles')
-        .update({ balance: newBalance })
-        .eq('id', userData.user.id);
-      if (updErr) throw updErr;
-
-      const { error: insErr } = await supabase.from('transactions').insert({
-        user_id: userData.user.id,
-        partner_name: activeMatch.partner,
-        type: activeMatch.type,
-        amount: activeMatch.amount,
-        reference_id: ref || null,
-        status: 'completed',
+      const { data, error } = await supabase.functions.invoke('finalize-transaction', {
+        body: {
+          type: activeMatch.type,
+          amount: activeMatch.amount,
+          partner_name: activeMatch.partner,
+          reference_id: ref || null,
+        },
       });
-      if (insErr) throw insErr;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
+      const newBalance = Number(data.new_balance);
       setUserBalance(newBalance);
       setTxFinalized(true);
       setChatMessages(prev => [...prev, {
