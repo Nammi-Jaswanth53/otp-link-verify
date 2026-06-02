@@ -65,6 +65,13 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [reportReason, setReportReason] = useState('');
   const [reportDetails, setReportDetails] = useState('');
   const [txFinalized, setTxFinalized] = useState(false);
+  // Live match status flow
+  const [myLiveStatus, setMyLiveStatus] = useState<'idle' | 'on_the_way' | 'arrived'>('idle');
+  const [partnerLiveStatus, setPartnerLiveStatus] = useState<'idle' | 'on_the_way' | 'arrived'>('idle');
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelDetails, setCancelDetails] = useState('');
+  const [matchCancelled, setMatchCancelled] = useState(false);
   const { toast } = useToast();
   const { queue, addRequest, removeRequest, findMatch, getNearbyRequests } = useRequestQueue();
 
