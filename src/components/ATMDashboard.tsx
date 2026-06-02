@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useRequestQueue } from '@/hooks/useRequestQueue';
+import { notify, requestNotifPermission, getNotifPermission, type NotifPermission } from '@/lib/notifications';
 import { 
   ArrowDownLeft, 
   ArrowUpRight, 
@@ -72,6 +73,12 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelDetails, setCancelDetails] = useState('');
   const [matchCancelled, setMatchCancelled] = useState(false);
+  // Notifications
+  const [notifPermission, setNotifPermission] = useState<NotifPermission>('default');
+  const [notifBannerDismissed, setNotifBannerDismissed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('notif_banner_dismissed') === '1';
+  });
   const { toast } = useToast();
   const { queue, addRequest, removeRequest, findMatch, getNearbyRequests } = useRequestQueue();
 
@@ -113,6 +120,30 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     };
     fetchMapsKey();
   }, []);
+
+  // Initial notification permission state
+  useEffect(() => {
+    setNotifPermission(getNotifPermission());
+  }, []);
+
+  const enableNotifications = async () => {
+    const result = await requestNotifPermission();
+    setNotifPermission(result);
+    if (result === 'granted') {
+      notify({ title: 'Notifications enabled', body: "You'll be alerted for matches and messages.", tag: 'enabled' });
+      toast({ title: '🔔 Notifications enabled' });
+    } else if (result === 'denied') {
+      toast({ title: 'Notifications blocked', description: 'Enable them in your browser site settings.', variant: 'destructive' });
+    } else if (result === 'unsupported') {
+      toast({ title: 'Not supported', description: 'Your browser does not support web notifications.', variant: 'destructive' });
+    }
+  };
+
+  const dismissNotifBanner = () => {
+    setNotifBannerDismissed(true);
+    try { window.localStorage.setItem('notif_banner_dismissed', '1'); } catch { /* ignore */ }
+  };
+
 
   // Check for matches periodically
   useEffect(() => {
@@ -293,11 +324,22 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       title: "🎉 MATCH FOUND!",
       description: `${matchedRequest.userName} is ready! Chat opened.`,
     });
-    
+    notify({
+      title: '🎉 Match found!',
+      body: `${matchedRequest.userName} wants to ${matchedRequest.type} $${matchedRequest.amount}.`,
+      tag: 'match-found',
+    });
+
     setTimeout(() => {
       toast({
         title: "💬 New Message",
         description: `${matchedRequest.userName} sent you a message!`,
+      });
+      notify({
+        title: `💬 ${matchedRequest.userName}`,
+        body: `Hi! I'm ready to ${matchedRequest.type} $${matchedRequest.amount}.`,
+        tag: 'chat-message',
+        onlyWhenHidden: true,
       });
     }, 2000);
   };
@@ -537,6 +579,12 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       };
 
       setChatMessages(prev => [...prev, reply]);
+      notify({
+        title: `💬 ${matchedUser}`,
+        body: reply.message,
+        tag: 'chat-message',
+        onlyWhenHidden: true,
+      });
     }, 1500);
   };
 
@@ -1024,6 +1072,33 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
               Logout
             </Button>
           </div>
+
+          {/* Notification permission banner */}
+          {notifPermission === 'default' && !notifBannerDismissed && (
+            <div className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/10 backdrop-blur-xl p-4 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-lg">🔔</div>
+                <div>
+                  <p className="text-sm font-semibold">Enable notifications</p>
+                  <p className="text-xs text-muted-foreground">Get instant alerts when you're matched or receive a message.</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={dismissNotifBanner}>Not now</Button>
+                <Button size="sm" onClick={enableNotifications}>Enable</Button>
+              </div>
+            </div>
+          )}
+          {notifPermission === 'denied' && !notifBannerDismissed && (
+            <div className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 backdrop-blur-xl p-4 animate-fade-in">
+              <p className="text-xs text-muted-foreground">
+                🔕 Notifications are blocked. Enable them in your browser site settings to get match alerts.
+              </p>
+              <Button size="sm" variant="ghost" onClick={dismissNotifBanner}>Dismiss</Button>
+            </div>
+          )}
+
+
 
           {/* Balance Card */}
           <div className="mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
