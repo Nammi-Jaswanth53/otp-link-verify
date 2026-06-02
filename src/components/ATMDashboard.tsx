@@ -121,6 +121,30 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     fetchMapsKey();
   }, []);
 
+  // Initial notification permission state
+  useEffect(() => {
+    setNotifPermission(getNotifPermission());
+  }, []);
+
+  const enableNotifications = async () => {
+    const result = await requestNotifPermission();
+    setNotifPermission(result);
+    if (result === 'granted') {
+      notify({ title: 'Notifications enabled', body: "You'll be alerted for matches and messages.", tag: 'enabled' });
+      toast({ title: '🔔 Notifications enabled' });
+    } else if (result === 'denied') {
+      toast({ title: 'Notifications blocked', description: 'Enable them in your browser site settings.', variant: 'destructive' });
+    } else if (result === 'unsupported') {
+      toast({ title: 'Not supported', description: 'Your browser does not support web notifications.', variant: 'destructive' });
+    }
+  };
+
+  const dismissNotifBanner = () => {
+    setNotifBannerDismissed(true);
+    try { window.localStorage.setItem('notif_banner_dismissed', '1'); } catch { /* ignore */ }
+  };
+
+
   // Check for matches periodically
   useEffect(() => {
     if (!myRequestId) return;
