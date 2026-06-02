@@ -324,11 +324,22 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       title: "🎉 MATCH FOUND!",
       description: `${matchedRequest.userName} is ready! Chat opened.`,
     });
-    
+    notify({
+      title: '🎉 Match found!',
+      body: `${matchedRequest.userName} wants to ${matchedRequest.type} $${matchedRequest.amount}.`,
+      tag: 'match-found',
+    });
+
     setTimeout(() => {
       toast({
         title: "💬 New Message",
         description: `${matchedRequest.userName} sent you a message!`,
+      });
+      notify({
+        title: `💬 ${matchedRequest.userName}`,
+        body: `Hi! I'm ready to ${matchedRequest.type} $${matchedRequest.amount}.`,
+        tag: 'chat-message',
+        onlyWhenHidden: true,
       });
     }, 2000);
   };
