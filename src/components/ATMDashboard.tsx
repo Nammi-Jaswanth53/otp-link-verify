@@ -1442,6 +1442,42 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel match with {activeMatch?.partner || 'partner'}?</DialogTitle>
+            <DialogDescription>
+              Let them know why so they can plan. This will end the live meetup.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Select value={cancelReason} onValueChange={setCancelReason}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="Select a reason" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="changed_mind">Changed my mind</SelectItem>
+                <SelectItem value="cant_reach">Can't reach the location</SelectItem>
+                <SelectItem value="partner_not_responding">Partner not responding</SelectItem>
+                <SelectItem value="unsafe_location">Unsafe location</SelectItem>
+                <SelectItem value="emergency">Emergency came up</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+            <Textarea
+              value={cancelDetails}
+              onChange={(e) => setCancelDetails(e.target.value.slice(0, 300))}
+              placeholder="Optional details (max 300 chars)"
+              className="rounded-xl min-h-[70px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowCancelDialog(false)}>Keep Match</Button>
+            <Button variant="destructive" onClick={submitCancelMatch}>Cancel Match</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
