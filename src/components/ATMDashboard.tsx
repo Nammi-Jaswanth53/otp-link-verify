@@ -579,6 +579,12 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       };
 
       setChatMessages(prev => [...prev, reply]);
+      notify({
+        title: `💬 ${matchedUser}`,
+        body: reply.message,
+        tag: 'chat-message',
+        onlyWhenHidden: true,
+      });
     }, 1500);
   };
 
