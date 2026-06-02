@@ -65,6 +65,13 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [reportReason, setReportReason] = useState('');
   const [reportDetails, setReportDetails] = useState('');
   const [txFinalized, setTxFinalized] = useState(false);
+  // Live match status flow
+  const [myLiveStatus, setMyLiveStatus] = useState<'idle' | 'on_the_way' | 'arrived'>('idle');
+  const [partnerLiveStatus, setPartnerLiveStatus] = useState<'idle' | 'on_the_way' | 'arrived'>('idle');
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelDetails, setCancelDetails] = useState('');
+  const [matchCancelled, setMatchCancelled] = useState(false);
   const { toast } = useToast();
   const { queue, addRequest, removeRequest, findMatch, getNearbyRequests } = useRequestQueue();
 
@@ -266,6 +273,11 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     setRatingStars(0);
     setRatingComment('');
     setRatingSubmitted(false);
+    setMyLiveStatus('idle');
+    setPartnerLiveStatus('idle');
+    setMatchCancelled(false);
+    setCancelReason('');
+    setCancelDetails('');
     
     const messages = [
       {sender: 'Bot', message: `🎉 MATCH FOUND! ${matchedRequest.userName} wants to ${matchedRequest.type === 'withdrawal' ? 'withdraw' : 'deposit'} $${matchedRequest.amount}.`, time: new Date().toLocaleTimeString()},
@@ -639,6 +651,53 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
       toast({ title: 'Report failed', description: err.message, variant: 'destructive' });
     }
   };
+
+  // Live match status handlers
+  const postSystemMessage = (message: string) => {
+    setChatMessages((prev) => [...prev, { sender: 'You', message, time: new Date().toLocaleTimeString() }]);
+  };
+
+  const handleOnTheWay = () => {
+    if (!activeMatch || matchCancelled) return;
+    setMyLiveStatus('on_the_way');
+    postSystemMessage(`🚶 I'm on the way to meet you.`);
+    toast({ title: 'Status updated', description: "You're marked as on the way." });
+    // Simulate partner status after a short delay
+    setTimeout(() => {
+      setPartnerLiveStatus('on_the_way');
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: matchedUser, message: `🚶 I'm on the way too. See you soon!`, time: new Date().toLocaleTimeString() },
+      ]);
+    }, 4000);
+  };
+
+  const handleArrived = () => {
+    if (!activeMatch || matchCancelled) return;
+    setMyLiveStatus('arrived');
+    postSystemMessage(`📍 I've arrived at the meetup point.`);
+    toast({ title: 'Status updated', description: "You're marked as arrived." });
+    setTimeout(() => {
+      setPartnerLiveStatus('arrived');
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: matchedUser, message: `📍 I just arrived. Let's complete the exchange.`, time: new Date().toLocaleTimeString() },
+      ]);
+    }, 4000);
+  };
+
+  const submitCancelMatch = () => {
+    if (!cancelReason) {
+      toast({ title: 'Please select a reason', variant: 'destructive' });
+      return;
+    }
+    setMatchCancelled(true);
+    setShowCancelDialog(false);
+    postSystemMessage(`❌ Match cancelled. Reason: ${cancelReason}${cancelDetails ? ` — ${cancelDetails}` : ''}`);
+    toast({ title: 'Match cancelled', description: 'The other user has been notified.', variant: 'destructive' });
+  };
+
+
 
 
   const handleLocationClick = (location: {lat: number, lng: number, address: string}) => {
@@ -1186,7 +1245,58 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
             ))}
           </div>
 
-          {activeMatch && (
+          {activeMatch && !txFinalized && !matchCancelled && (
+            <div className="p-3 border-t border-border/50 bg-background/40 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Live Meetup Status
+                </p>
+                <div className="flex gap-1 text-[10px]">
+                  <span className={`px-2 py-0.5 rounded-full ${myLiveStatus === 'arrived' ? 'bg-success/20 text-success' : myLiveStatus === 'on_the_way' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                    You: {myLiveStatus === 'idle' ? 'pending' : myLiveStatus === 'on_the_way' ? '🚶 on the way' : '📍 arrived'}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full ${partnerLiveStatus === 'arrived' ? 'bg-success/20 text-success' : partnerLiveStatus === 'on_the_way' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                    {matchedUser.split(' ')[0]}: {partnerLiveStatus === 'idle' ? 'pending' : partnerLiveStatus === 'on_the_way' ? '🚶' : '📍'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleOnTheWay}
+                  disabled={myLiveStatus !== 'idle'}
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 rounded-xl text-xs h-8"
+                >
+                  🚶 On the Way
+                </Button>
+                <Button
+                  onClick={handleArrived}
+                  disabled={myLiveStatus === 'arrived' || myLiveStatus === 'idle'}
+                  size="sm"
+                  className="flex-1 rounded-xl text-xs h-8"
+                >
+                  📍 Arrived
+                </Button>
+                <Button
+                  onClick={() => setShowCancelDialog(true)}
+                  size="sm"
+                  variant="outline"
+                  className="rounded-xl text-xs h-8 text-destructive border-destructive/30 hover:bg-destructive/10"
+                >
+                  ✕ Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {activeMatch && matchCancelled && (
+            <div className="p-3 border-t border-border/50 bg-destructive/10">
+              <p className="text-xs text-destructive font-medium">❌ This match was cancelled. You can start a new request from the dashboard.</p>
+            </div>
+          )}
+
+          {activeMatch && !matchCancelled && (
             <div className="p-3 border-t border-border/50 bg-muted/20 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1329,6 +1439,42 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowReportDialog(false)}>Cancel</Button>
             <Button variant="destructive" onClick={submitReport}>Submit Report</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel match with {activeMatch?.partner || 'partner'}?</DialogTitle>
+            <DialogDescription>
+              Let them know why so they can plan. This will end the live meetup.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Select value={cancelReason} onValueChange={setCancelReason}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="Select a reason" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="changed_mind">Changed my mind</SelectItem>
+                <SelectItem value="cant_reach">Can't reach the location</SelectItem>
+                <SelectItem value="partner_not_responding">Partner not responding</SelectItem>
+                <SelectItem value="unsafe_location">Unsafe location</SelectItem>
+                <SelectItem value="emergency">Emergency came up</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+            <Textarea
+              value={cancelDetails}
+              onChange={(e) => setCancelDetails(e.target.value.slice(0, 300))}
+              placeholder="Optional details (max 300 chars)"
+              className="rounded-xl min-h-[70px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowCancelDialog(false)}>Keep Match</Button>
+            <Button variant="destructive" onClick={submitCancelMatch}>Cancel Match</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
