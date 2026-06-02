@@ -1245,7 +1245,58 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
             ))}
           </div>
 
-          {activeMatch && (
+          {activeMatch && !txFinalized && !matchCancelled && (
+            <div className="p-3 border-t border-border/50 bg-background/40 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Live Meetup Status
+                </p>
+                <div className="flex gap-1 text-[10px]">
+                  <span className={`px-2 py-0.5 rounded-full ${myLiveStatus === 'arrived' ? 'bg-success/20 text-success' : myLiveStatus === 'on_the_way' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                    You: {myLiveStatus === 'idle' ? 'pending' : myLiveStatus === 'on_the_way' ? '🚶 on the way' : '📍 arrived'}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full ${partnerLiveStatus === 'arrived' ? 'bg-success/20 text-success' : partnerLiveStatus === 'on_the_way' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                    {matchedUser.split(' ')[0]}: {partnerLiveStatus === 'idle' ? 'pending' : partnerLiveStatus === 'on_the_way' ? '🚶' : '📍'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleOnTheWay}
+                  disabled={myLiveStatus !== 'idle'}
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 rounded-xl text-xs h-8"
+                >
+                  🚶 On the Way
+                </Button>
+                <Button
+                  onClick={handleArrived}
+                  disabled={myLiveStatus === 'arrived' || myLiveStatus === 'idle'}
+                  size="sm"
+                  className="flex-1 rounded-xl text-xs h-8"
+                >
+                  📍 Arrived
+                </Button>
+                <Button
+                  onClick={() => setShowCancelDialog(true)}
+                  size="sm"
+                  variant="outline"
+                  className="rounded-xl text-xs h-8 text-destructive border-destructive/30 hover:bg-destructive/10"
+                >
+                  ✕ Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {activeMatch && matchCancelled && (
+            <div className="p-3 border-t border-border/50 bg-destructive/10">
+              <p className="text-xs text-destructive font-medium">❌ This match was cancelled. You can start a new request from the dashboard.</p>
+            </div>
+          )}
+
+          {activeMatch && !matchCancelled && (
             <div className="p-3 border-t border-border/50 bg-muted/20 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
