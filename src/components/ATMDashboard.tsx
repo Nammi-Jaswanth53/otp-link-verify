@@ -73,6 +73,12 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelDetails, setCancelDetails] = useState('');
   const [matchCancelled, setMatchCancelled] = useState(false);
+  // Notifications
+  const [notifPermission, setNotifPermission] = useState<NotifPermission>('default');
+  const [notifBannerDismissed, setNotifBannerDismissed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('notif_banner_dismissed') === '1';
+  });
   const { toast } = useToast();
   const { queue, addRequest, removeRequest, findMatch, getNearbyRequests } = useRequestQueue();
 
