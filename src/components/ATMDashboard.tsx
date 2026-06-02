@@ -652,6 +652,53 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     }
   };
 
+  // Live match status handlers
+  const postSystemMessage = (message: string) => {
+    setChatMessages((prev) => [...prev, { sender: 'You', message, time: new Date().toLocaleTimeString() }]);
+  };
+
+  const handleOnTheWay = () => {
+    if (!activeMatch || matchCancelled) return;
+    setMyLiveStatus('on_the_way');
+    postSystemMessage(`🚶 I'm on the way to meet you.`);
+    toast({ title: 'Status updated', description: "You're marked as on the way." });
+    // Simulate partner status after a short delay
+    setTimeout(() => {
+      setPartnerLiveStatus('on_the_way');
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: matchedUser, message: `🚶 I'm on the way too. See you soon!`, time: new Date().toLocaleTimeString() },
+      ]);
+    }, 4000);
+  };
+
+  const handleArrived = () => {
+    if (!activeMatch || matchCancelled) return;
+    setMyLiveStatus('arrived');
+    postSystemMessage(`📍 I've arrived at the meetup point.`);
+    toast({ title: 'Status updated', description: "You're marked as arrived." });
+    setTimeout(() => {
+      setPartnerLiveStatus('arrived');
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: matchedUser, message: `📍 I just arrived. Let's complete the exchange.`, time: new Date().toLocaleTimeString() },
+      ]);
+    }, 4000);
+  };
+
+  const submitCancelMatch = () => {
+    if (!cancelReason) {
+      toast({ title: 'Please select a reason', variant: 'destructive' });
+      return;
+    }
+    setMatchCancelled(true);
+    setShowCancelDialog(false);
+    postSystemMessage(`❌ Match cancelled. Reason: ${cancelReason}${cancelDetails ? ` — ${cancelDetails}` : ''}`);
+    toast({ title: 'Match cancelled', description: 'The other user has been notified.', variant: 'destructive' });
+  };
+
+
+
 
   const handleLocationClick = (location: {lat: number, lng: number, address: string}) => {
     setMapLocation(location);
