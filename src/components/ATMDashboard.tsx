@@ -273,6 +273,11 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     setRatingStars(0);
     setRatingComment('');
     setRatingSubmitted(false);
+    setMyLiveStatus('idle');
+    setPartnerLiveStatus('idle');
+    setMatchCancelled(false);
+    setCancelReason('');
+    setCancelDetails('');
     
     const messages = [
       {sender: 'Bot', message: `🎉 MATCH FOUND! ${matchedRequest.userName} wants to ${matchedRequest.type === 'withdrawal' ? 'withdraw' : 'deposit'} $${matchedRequest.amount}.`, time: new Date().toLocaleTimeString()},
