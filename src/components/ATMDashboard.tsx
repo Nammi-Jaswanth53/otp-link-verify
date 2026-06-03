@@ -174,11 +174,38 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   }, [queue, isWaitingForMatch, myRequestId]);
 
   const [userBalance, setUserBalance] = useState<number>(0);
+  // Feature 6: Limits & Fees
+  const TX_MIN = 500;
+  const TX_MAX = 10000;
+  const DAILY_LIMIT = 25000;
+  const FEE_RATE = 0.005; // 0.5%
+  const FEE_MIN = 1;
+  const FEE_MAX = 25;
+  const computeFee = (amt: number) => {
+    if (!amt || amt <= 0) return 0;
+    return Math.min(FEE_MAX, Math.max(FEE_MIN, Math.round(amt * FEE_RATE * 100) / 100));
+  };
+  const [dailyUsed, setDailyUsed] = useState<number>(0);
   const transactions = [
     { id: 1, type: 'deposit', amount: 1000, date: '2024-01-15', status: 'completed' },
     { id: 2, type: 'withdrawal', amount: 500, date: '2024-01-14', status: 'completed' },
     { id: 3, type: 'deposit', amount: 2000, date: '2024-01-13', status: 'completed' },
   ];
+
+  const refreshDailyUsed = async () => {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const { data: txs } = await supabase
+      .from('transactions')
+      .select('amount, created_at')
+      .eq('user_id', u.user.id)
+      .gte('created_at', startOfDay.toISOString());
+    const used = (txs || []).reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+    setDailyUsed(used);
+  };
 
   // Fetch balance from server (authenticated, RLS-protected)
   useEffect(() => {
@@ -191,6 +218,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
           .eq('id', data.user.id)
           .maybeSingle();
         if (profile) setUserBalance(Number(profile.balance));
+        refreshDailyUsed();
       });
     });
   }, []);
@@ -344,21 +372,37 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     }, 2000);
   };
 
-  const handleWithdrawal = async () => {
-    if (!amount) {
-      toast({
-        title: "Amount Required",
-        description: "Please enter the amount you want to withdraw.",
-        variant: "destructive",
-      });
-      return;
+  const validateAmount = (raw: string, kind: 'withdrawal' | 'deposit'): number | null => {
+    const amt = parseFloat(raw);
+    if (!raw || isNaN(amt) || amt <= 0) {
+      toast({ title: 'Amount Required', description: `Please enter the amount you want to ${kind === 'withdrawal' ? 'withdraw' : 'deposit'}.`, variant: 'destructive' });
+      return null;
     }
+    if (amt < TX_MIN) {
+      toast({ title: 'Below Minimum', description: `Minimum ${kind} amount is $${TX_MIN}.`, variant: 'destructive' });
+      return null;
+    }
+    if (amt > TX_MAX) {
+      toast({ title: 'Above Maximum', description: `Maximum per ${kind} is $${TX_MAX}.`, variant: 'destructive' });
+      return null;
+    }
+    if (dailyUsed + amt > DAILY_LIMIT) {
+      const remaining = Math.max(0, DAILY_LIMIT - dailyUsed);
+      toast({ title: 'Daily Limit Exceeded', description: `Daily limit is $${DAILY_LIMIT}. You have $${remaining} left today.`, variant: 'destructive' });
+      return null;
+    }
+    return amt;
+  };
 
-    if (parseFloat(amount) > userBalance) {
+  const handleWithdrawal = async () => {
+    const amt = validateAmount(amount, 'withdrawal');
+    if (amt === null) return;
+    const fee = computeFee(amt);
+    if (amt + fee > userBalance) {
       toast({
-        title: "Insufficient Balance",
-        description: "You don't have enough balance for this withdrawal.",
-        variant: "destructive",
+        title: 'Insufficient Balance',
+        description: `Need $${(amt + fee).toFixed(2)} (incl. $${fee} fee). Your balance: $${userBalance}.`,
+        variant: 'destructive',
       });
       return;
     }
@@ -413,14 +457,8 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   };
 
   const handleDeposit = async () => {
-    if (!amount) {
-      toast({
-        title: "Amount Required",
-        description: "Please enter the amount you want to deposit.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const amt = validateAmount(amount, 'deposit');
+    if (amt === null) return;
 
     await requestLocation();
 
@@ -605,6 +643,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
 
       const newBalance = Number(data.new_balance);
       setUserBalance(newBalance);
+      refreshDailyUsed();
       setTxFinalized(true);
       setChatMessages(prev => [...prev, {
         sender: 'Bot',
@@ -936,10 +975,34 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
                   <Input
                     id="amount"
                     type="number"
+                    min={TX_MIN}
+                    max={TX_MAX}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    placeholder="Enter amount"
+                    placeholder={`Enter amount ($${TX_MIN} – $${TX_MAX})`}
                   />
+                  {(() => {
+                    const amt = parseFloat(amount) || 0;
+                    const fee = computeFee(amt);
+                    const remaining = Math.max(0, DAILY_LIMIT - dailyUsed);
+                    return (
+                      <div className="rounded-lg border border-border/60 bg-muted/40 p-3 text-xs space-y-1">
+                        <div className="flex justify-between"><span className="text-muted-foreground">Per-transaction limits</span><span>${TX_MIN} – ${TX_MAX}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Daily remaining</span><span>${remaining.toLocaleString()} / ${DAILY_LIMIT.toLocaleString()}</span></div>
+                        {amt > 0 && (
+                          <>
+                            <div className="flex justify-between"><span className="text-muted-foreground">Service fee (0.5%, $1–$25)</span><span>${fee.toFixed(2)}</span></div>
+                            {activeModal === 'withdrawal' && (
+                              <div className="flex justify-between font-medium pt-1 border-t border-border/40"><span>Total debit</span><span>${(amt + fee).toFixed(2)}</span></div>
+                            )}
+                            {activeModal === 'deposit' && (
+                              <div className="flex justify-between font-medium pt-1 border-t border-border/40"><span>Net credit</span><span>${Math.max(0, amt - fee).toFixed(2)}</span></div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex gap-2">
                   <Button 
