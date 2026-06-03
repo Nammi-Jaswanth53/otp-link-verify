@@ -174,11 +174,38 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   }, [queue, isWaitingForMatch, myRequestId]);
 
   const [userBalance, setUserBalance] = useState<number>(0);
+  // Feature 6: Limits & Fees
+  const TX_MIN = 500;
+  const TX_MAX = 10000;
+  const DAILY_LIMIT = 25000;
+  const FEE_RATE = 0.005; // 0.5%
+  const FEE_MIN = 1;
+  const FEE_MAX = 25;
+  const computeFee = (amt: number) => {
+    if (!amt || amt <= 0) return 0;
+    return Math.min(FEE_MAX, Math.max(FEE_MIN, Math.round(amt * FEE_RATE * 100) / 100));
+  };
+  const [dailyUsed, setDailyUsed] = useState<number>(0);
   const transactions = [
     { id: 1, type: 'deposit', amount: 1000, date: '2024-01-15', status: 'completed' },
     { id: 2, type: 'withdrawal', amount: 500, date: '2024-01-14', status: 'completed' },
     { id: 3, type: 'deposit', amount: 2000, date: '2024-01-13', status: 'completed' },
   ];
+
+  const refreshDailyUsed = async () => {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const { data: txs } = await supabase
+      .from('transactions')
+      .select('amount, created_at')
+      .eq('user_id', u.user.id)
+      .gte('created_at', startOfDay.toISOString());
+    const used = (txs || []).reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+    setDailyUsed(used);
+  };
 
   // Fetch balance from server (authenticated, RLS-protected)
   useEffect(() => {
@@ -191,6 +218,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
           .eq('id', data.user.id)
           .maybeSingle();
         if (profile) setUserBalance(Number(profile.balance));
+        refreshDailyUsed();
       });
     });
   }, []);
