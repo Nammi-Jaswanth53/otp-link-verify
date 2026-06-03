@@ -643,6 +643,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
 
       const newBalance = Number(data.new_balance);
       setUserBalance(newBalance);
+      refreshDailyUsed();
       setTxFinalized(true);
       setChatMessages(prev => [...prev, {
         sender: 'Bot',
