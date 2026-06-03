@@ -457,14 +457,8 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
   };
 
   const handleDeposit = async () => {
-    if (!amount) {
-      toast({
-        title: "Amount Required",
-        description: "Please enter the amount you want to deposit.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const amt = validateAmount(amount, 'deposit');
+    if (amt === null) return;
 
     await requestLocation();
 
