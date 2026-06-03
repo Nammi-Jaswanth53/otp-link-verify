@@ -372,21 +372,37 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     }, 2000);
   };
 
-  const handleWithdrawal = async () => {
-    if (!amount) {
-      toast({
-        title: "Amount Required",
-        description: "Please enter the amount you want to withdraw.",
-        variant: "destructive",
-      });
-      return;
+  const validateAmount = (raw: string, kind: 'withdrawal' | 'deposit'): number | null => {
+    const amt = parseFloat(raw);
+    if (!raw || isNaN(amt) || amt <= 0) {
+      toast({ title: 'Amount Required', description: `Please enter the amount you want to ${kind === 'withdrawal' ? 'withdraw' : 'deposit'}.`, variant: 'destructive' });
+      return null;
     }
+    if (amt < TX_MIN) {
+      toast({ title: 'Below Minimum', description: `Minimum ${kind} amount is $${TX_MIN}.`, variant: 'destructive' });
+      return null;
+    }
+    if (amt > TX_MAX) {
+      toast({ title: 'Above Maximum', description: `Maximum per ${kind} is $${TX_MAX}.`, variant: 'destructive' });
+      return null;
+    }
+    if (dailyUsed + amt > DAILY_LIMIT) {
+      const remaining = Math.max(0, DAILY_LIMIT - dailyUsed);
+      toast({ title: 'Daily Limit Exceeded', description: `Daily limit is $${DAILY_LIMIT}. You have $${remaining} left today.`, variant: 'destructive' });
+      return null;
+    }
+    return amt;
+  };
 
-    if (parseFloat(amount) > userBalance) {
+  const handleWithdrawal = async () => {
+    const amt = validateAmount(amount, 'withdrawal');
+    if (amt === null) return;
+    const fee = computeFee(amt);
+    if (amt + fee > userBalance) {
       toast({
-        title: "Insufficient Balance",
-        description: "You don't have enough balance for this withdrawal.",
-        variant: "destructive",
+        title: 'Insufficient Balance',
+        description: `Need $${(amt + fee).toFixed(2)} (incl. $${fee} fee). Your balance: $${userBalance}.`,
+        variant: 'destructive',
       });
       return;
     }
