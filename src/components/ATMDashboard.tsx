@@ -975,10 +975,34 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
                   <Input
                     id="amount"
                     type="number"
+                    min={TX_MIN}
+                    max={TX_MAX}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    placeholder="Enter amount"
+                    placeholder={`Enter amount ($${TX_MIN} – $${TX_MAX})`}
                   />
+                  {(() => {
+                    const amt = parseFloat(amount) || 0;
+                    const fee = computeFee(amt);
+                    const remaining = Math.max(0, DAILY_LIMIT - dailyUsed);
+                    return (
+                      <div className="rounded-lg border border-border/60 bg-muted/40 p-3 text-xs space-y-1">
+                        <div className="flex justify-between"><span className="text-muted-foreground">Per-transaction limits</span><span>${TX_MIN} – ${TX_MAX}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Daily remaining</span><span>${remaining.toLocaleString()} / ${DAILY_LIMIT.toLocaleString()}</span></div>
+                        {amt > 0 && (
+                          <>
+                            <div className="flex justify-between"><span className="text-muted-foreground">Service fee (0.5%, $1–$25)</span><span>${fee.toFixed(2)}</span></div>
+                            {activeModal === 'withdrawal' && (
+                              <div className="flex justify-between font-medium pt-1 border-t border-border/40"><span>Total debit</span><span>${(amt + fee).toFixed(2)}</span></div>
+                            )}
+                            {activeModal === 'deposit' && (
+                              <div className="flex justify-between font-medium pt-1 border-t border-border/40"><span>Net credit</span><span>${Math.max(0, amt - fee).toFixed(2)}</span></div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex gap-2">
                   <Button 
