@@ -195,11 +195,8 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     return Math.min(FEE_MAX, Math.max(FEE_MIN, Math.round(amt * FEE_RATE * 100) / 100));
   };
   const [dailyUsed, setDailyUsed] = useState<number>(0);
-  const transactions = [
-    { id: 1, type: 'deposit', amount: 1000, date: '2024-01-15', status: 'completed' },
-    { id: 2, type: 'withdrawal', amount: 500, date: '2024-01-14', status: 'completed' },
-    { id: 3, type: 'deposit', amount: 2000, date: '2024-01-13', status: 'completed' },
-  ];
+  const [transactions, setTransactions] = useState<Array<{id: string; type: string; amount: number; date: string; status: string; partner_name?: string; reference_id?: string | null}>>([]);
+  const [selectedTx, setSelectedTx] = useState<typeof transactions[0] | null>(null);
 
   const refreshDailyUsed = async () => {
     const { supabase } = await import('@/integrations/supabase/client');
