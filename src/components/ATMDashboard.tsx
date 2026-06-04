@@ -31,6 +31,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { Loader } from '@googlemaps/js-api-loader';
+import SettingsPanel from '@/components/SettingsPanel';
 
 interface ATMDashboardProps {
   onLogout: () => void;
