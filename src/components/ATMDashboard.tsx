@@ -23,9 +23,15 @@ import {
   Users,
   Clock,
   CreditCard,
-  Trash2
+  Trash2,
+  Settings,
+  User,
+  Smartphone,
+  MapPinned,
+  CheckCircle2
 } from 'lucide-react';
 import { Loader } from '@googlemaps/js-api-loader';
+import SettingsPanel from '@/components/SettingsPanel';
 
 interface ATMDashboardProps {
   onLogout: () => void;
@@ -79,6 +85,10 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem('notif_banner_dismissed') === '1';
   });
+  // Feature 10: Profile & Settings
+  const [profileData, setProfileData] = useState<{phone: string; email: string; joined: string; verified: boolean} | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editPhone, setEditPhone] = useState('');
   const { toast } = useToast();
   const { queue, addRequest, removeRequest, findMatch, getNearbyRequests } = useRequestQueue();
 
@@ -186,11 +196,8 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     return Math.min(FEE_MAX, Math.max(FEE_MIN, Math.round(amt * FEE_RATE * 100) / 100));
   };
   const [dailyUsed, setDailyUsed] = useState<number>(0);
-  const transactions = [
-    { id: 1, type: 'deposit', amount: 1000, date: '2024-01-15', status: 'completed' },
-    { id: 2, type: 'withdrawal', amount: 500, date: '2024-01-14', status: 'completed' },
-    { id: 3, type: 'deposit', amount: 2000, date: '2024-01-13', status: 'completed' },
-  ];
+  const [transactions, setTransactions] = useState<Array<{id: string; type: string; amount: number; date: string; status: string; partner_name?: string; reference_id?: string | null}>>([]);
+  const [selectedTx, setSelectedTx] = useState<typeof transactions[0] | null>(null);
 
   const refreshDailyUsed = async () => {
     const { supabase } = await import('@/integrations/supabase/client');
@@ -219,6 +226,39 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
           .maybeSingle();
         if (profile) setUserBalance(Number(profile.balance));
         refreshDailyUsed();
+      });
+    });
+  }, []);
+
+  // Feature 10: Load real transaction history
+  useEffect(() => {
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase.auth.getUser().then(async ({ data }) => {
+        if (!data.user) return;
+        const { data: txs } = await supabase
+          .from('transactions')
+          .select('id, type, amount, created_at, status, partner_name, reference_id')
+          .eq('user_id', data.user.id)
+          .order('created_at', { ascending: false })
+          .limit(20);
+        const formatted = (txs || []).map((t: any) => ({
+          id: t.id,
+          type: t.type,
+          amount: Number(t.amount),
+          date: new Date(t.created_at).toLocaleDateString(),
+          status: t.status,
+          partner_name: t.partner_name,
+          reference_id: t.reference_id,
+        }));
+        if (formatted.length > 0) {
+          setTransactions(formatted);
+        } else {
+          setTransactions([
+            { id: 'demo-1', type: 'deposit', amount: 1000, date: new Date().toLocaleDateString(), status: 'completed', partner_name: 'Raju P.', reference_id: null },
+            { id: 'demo-2', type: 'withdrawal', amount: 500, date: new Date(Date.now() - 86400000).toLocaleDateString(), status: 'completed', partner_name: 'Lakshmi K.', reference_id: null },
+            { id: 'demo-3', type: 'deposit', amount: 2000, date: new Date(Date.now() - 172800000).toLocaleDateString(), status: 'completed', partner_name: 'Suresh N.', reference_id: null },
+          ]);
+        }
       });
     });
   }, []);
@@ -960,11 +1000,13 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
               {activeModal === 'balance' && <Shield className="w-5 h-5" />}
               {activeModal === 'history' && <History className="w-5 h-5" />}
               {activeModal === 'addAccount' && <Plus className="w-5 h-5" />}
+              {activeModal === 'settings' && <Settings className="w-5 h-5" />}
               {activeModal === 'withdrawal' && 'Withdrawal'}
               {activeModal === 'deposit' && 'Deposit'}
               {activeModal === 'balance' && 'Check Balance'}
               {activeModal === 'history' && 'Transaction History'}
               {activeModal === 'addAccount' && 'Add Account'}
+              {activeModal === 'settings' && 'Settings'}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1102,6 +1144,10 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
                   </Button>
                 </div>
               </>
+            )}
+
+            {activeModal === 'settings' && (
+              <SettingsPanel onClose={() => setActiveModal(null)} />
             )}
           </CardContent>
         </div>
@@ -1266,7 +1312,8 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
               { id: 'history', icon: History, label: 'History', desc: 'View past transactions', gradient: 'from-primary/80 to-primary', iconBg: 'bg-primary/15', iconColor: 'text-primary', delay: '0.25s' },
               { id: 'balance', icon: Shield, label: 'Balance', desc: 'Check account balance', gradient: 'from-warning/80 to-warning', iconBg: 'bg-warning/15', iconColor: 'text-warning', delay: '0.3s' },
               { id: 'addAccount', icon: Plus, label: 'Add Account', desc: 'Link a bank account', gradient: 'from-accent/80 to-accent', iconBg: 'bg-accent/15', iconColor: 'text-accent', delay: '0.35s' },
-              { id: 'logout', icon: LogOut, label: 'Logout', desc: 'Sign out securely', gradient: 'from-muted-foreground/80 to-muted-foreground', iconBg: 'bg-muted/50', iconColor: 'text-muted-foreground', delay: '0.4s' },
+              { id: 'settings', icon: Settings, label: 'Settings', desc: 'Profile & preferences', gradient: 'from-accent/80 to-accent', iconBg: 'bg-accent/15', iconColor: 'text-accent', delay: '0.4s' },
+              { id: 'logout', icon: LogOut, label: 'Logout', desc: 'Sign out securely', gradient: 'from-muted-foreground/80 to-muted-foreground', iconBg: 'bg-muted/50', iconColor: 'text-muted-foreground', delay: '0.45s' },
             ].map((item) => (
               <div
                 key={item.id}
