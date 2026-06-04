@@ -23,7 +23,12 @@ import {
   Users,
   Clock,
   CreditCard,
-  Trash2
+  Trash2,
+  Settings,
+  User,
+  Smartphone,
+  MapPinned,
+  CheckCircle2
 } from 'lucide-react';
 import { Loader } from '@googlemaps/js-api-loader';
 
