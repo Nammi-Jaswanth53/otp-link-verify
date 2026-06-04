@@ -967,11 +967,13 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
               {activeModal === 'balance' && <Shield className="w-5 h-5" />}
               {activeModal === 'history' && <History className="w-5 h-5" />}
               {activeModal === 'addAccount' && <Plus className="w-5 h-5" />}
+              {activeModal === 'settings' && <Settings className="w-5 h-5" />}
               {activeModal === 'withdrawal' && 'Withdrawal'}
               {activeModal === 'deposit' && 'Deposit'}
               {activeModal === 'balance' && 'Check Balance'}
               {activeModal === 'history' && 'Transaction History'}
               {activeModal === 'addAccount' && 'Add Account'}
+              {activeModal === 'settings' && 'Settings'}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
