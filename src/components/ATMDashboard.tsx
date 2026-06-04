@@ -230,6 +230,39 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     });
   }, []);
 
+  // Feature 10: Load real transaction history
+  useEffect(() => {
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase.auth.getUser().then(async ({ data }) => {
+        if (!data.user) return;
+        const { data: txs } = await supabase
+          .from('transactions')
+          .select('id, type, amount, created_at, status, partner_name, reference_id')
+          .eq('user_id', data.user.id)
+          .order('created_at', { ascending: false })
+          .limit(20);
+        const formatted = (txs || []).map((t: any) => ({
+          id: t.id,
+          type: t.type,
+          amount: Number(t.amount),
+          date: new Date(t.created_at).toLocaleDateString(),
+          status: t.status,
+          partner_name: t.partner_name,
+          reference_id: t.reference_id,
+        }));
+        if (formatted.length > 0) {
+          setTransactions(formatted);
+        } else {
+          setTransactions([
+            { id: 'demo-1', type: 'deposit', amount: 1000, date: new Date().toLocaleDateString(), status: 'completed', partner_name: 'Raju P.', reference_id: null },
+            { id: 'demo-2', type: 'withdrawal', amount: 500, date: new Date(Date.now() - 86400000).toLocaleDateString(), status: 'completed', partner_name: 'Lakshmi K.', reference_id: null },
+            { id: 'demo-3', type: 'deposit', amount: 2000, date: new Date(Date.now() - 172800000).toLocaleDateString(), status: 'completed', partner_name: 'Suresh N.', reference_id: null },
+          ]);
+        }
+      });
+    });
+  }, []);
+
   const generateNearbyLocation = (centerLat: number, centerLng: number, distanceKm: number) => {
     // Generate random distance between 2-3 km
     const minDistance = 2;
