@@ -84,6 +84,10 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem('notif_banner_dismissed') === '1';
   });
+  // Feature 10: Profile & Settings
+  const [profileData, setProfileData] = useState<{phone: string; email: string; joined: string; verified: boolean} | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editPhone, setEditPhone] = useState('');
   const { toast } = useToast();
   const { queue, addRequest, removeRequest, findMatch, getNearbyRequests } = useRequestQueue();
 
