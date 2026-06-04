@@ -1112,6 +1112,10 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
                 </div>
               </>
             )}
+
+            {activeModal === 'settings' && (
+              <SettingsPanel onClose={() => setActiveModal(null)} />
+            )}
           </CardContent>
         </div>
       </div>
