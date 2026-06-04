@@ -191,7 +191,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
         </button>
         <button className="w-full flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors text-left">
           <div className="flex items-center gap-3">
-            <HelpCircle className="w-4 h-4 text-info" />
+            <HelpCircle className="w-4 h-4 text-accent" />
             <span className="text-sm font-medium">Help & Support</span>
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground" />
