@@ -1312,7 +1312,7 @@ const ATMDashboard: React.FC<ATMDashboardProps> = ({ onLogout }) => {
               { id: 'history', icon: History, label: 'History', desc: 'View past transactions', gradient: 'from-primary/80 to-primary', iconBg: 'bg-primary/15', iconColor: 'text-primary', delay: '0.25s' },
               { id: 'balance', icon: Shield, label: 'Balance', desc: 'Check account balance', gradient: 'from-warning/80 to-warning', iconBg: 'bg-warning/15', iconColor: 'text-warning', delay: '0.3s' },
               { id: 'addAccount', icon: Plus, label: 'Add Account', desc: 'Link a bank account', gradient: 'from-accent/80 to-accent', iconBg: 'bg-accent/15', iconColor: 'text-accent', delay: '0.35s' },
-              { id: 'settings', icon: Settings, label: 'Settings', desc: 'Profile & preferences', gradient: 'from-info/80 to-info', iconBg: 'bg-info/15', iconColor: 'text-info', delay: '0.4s' },
+              { id: 'settings', icon: Settings, label: 'Settings', desc: 'Profile & preferences', gradient: 'from-accent/80 to-accent', iconBg: 'bg-accent/15', iconColor: 'text-accent', delay: '0.4s' },
               { id: 'logout', icon: LogOut, label: 'Logout', desc: 'Sign out securely', gradient: 'from-muted-foreground/80 to-muted-foreground', iconBg: 'bg-muted/50', iconColor: 'text-muted-foreground', delay: '0.45s' },
             ].map((item) => (
               <div
