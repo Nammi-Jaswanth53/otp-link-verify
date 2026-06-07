@@ -12,17 +12,31 @@ const ResetPassword: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Supabase auto-parses the recovery token from URL hash and creates a session
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-      else {
-        // wait for hash to be processed
-        const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-          if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') setReady(true);
-        });
-        return () => sub.subscription.unsubscribe();
+    // Listen for auth events first so we don't miss PASSWORD_RECOVERY
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION'))) {
+        setReady(true);
       }
     });
+
+    // Also check current session immediately (covers case where session already exists)
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setReady(true);
+    });
+
+    // Fallback: if URL hash contains a recovery token, enable the form so user can submit.
+    // Supabase will have processed the hash and created a session by the time they submit.
+    const hash = window.location.hash || '';
+    if (hash.includes('type=recovery') || hash.includes('access_token=')) {
+      // Give supabase a moment to process the hash
+      const t = setTimeout(() => setReady(true), 800);
+      return () => {
+        clearTimeout(t);
+        sub.subscription.unsubscribe();
+      };
+    }
+
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,9 +67,14 @@ const ResetPassword: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)} required minLength={6} className="login-input" />
             <input type="password" placeholder="Confirm new password" value={confirm}
               onChange={(e) => setConfirm(e.target.value)} required minLength={6} className="login-input" />
-            <button type="submit" disabled={loading || !ready} className="login-btn login-btn-primary">
-              {loading ? 'Updating...' : ready ? 'Update Password' : 'Loading...'}
+            <button type="submit" disabled={loading} className="login-btn login-btn-primary">
+              {loading ? 'Updating...' : !ready ? 'Preparing...' : 'Update Password'}
             </button>
+            {!ready && (
+              <p style={{ color: '#fff', textAlign: 'center', fontSize: '12px', marginTop: '8px', opacity: 0.8 }}>
+                Verifying reset link... you can start typing your new password.
+              </p>
+            )}
           </form>
         </div>
       </div>
