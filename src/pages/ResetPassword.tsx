@@ -8,35 +8,81 @@ const ResetPassword: React.FC = () => {
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [verifying, setVerifying] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Listen for auth events first so we don't miss PASSWORD_RECOVERY
+    let mounted = true;
+
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION'))) {
+      if (!mounted) return;
+      if (session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')) {
         setReady(true);
+        setVerifying(false);
+        setErrorMsg(null);
       }
     });
 
-    // Also check current session immediately (covers case where session already exists)
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-    });
+    (async () => {
+      try {
+        const url = new URL(window.location.href);
+        const hash = window.location.hash || '';
+        const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
 
-    // Fallback: if URL hash contains a recovery token, enable the form so user can submit.
-    // Supabase will have processed the hash and created a session by the time they submit.
-    const hash = window.location.hash || '';
-    if (hash.includes('type=recovery') || hash.includes('access_token=')) {
-      // Give supabase a moment to process the hash
-      const t = setTimeout(() => setReady(true), 800);
-      return () => {
-        clearTimeout(t);
-        sub.subscription.unsubscribe();
-      };
-    }
+        // 1) PKCE flow: ?code=...
+        const code = url.searchParams.get('code');
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+          if (error) throw error;
+        }
+        // 2) Implicit flow: #access_token=...&refresh_token=...
+        else if (hashParams.get('access_token') && hashParams.get('refresh_token')) {
+          const { error } = await supabase.auth.setSession({
+            access_token: hashParams.get('access_token')!,
+            refresh_token: hashParams.get('refresh_token')!,
+          });
+          if (error) throw error;
+        }
+        // 3) Error in URL (expired link, etc.)
+        else if (hashParams.get('error') || url.searchParams.get('error')) {
+          const desc = hashParams.get('error_description') || url.searchParams.get('error_description') || 'Reset link is invalid or has expired.';
+          throw new Error(decodeURIComponent(desc.replace(/\+/g, ' ')));
+        }
 
-    return () => sub.subscription.unsubscribe();
+        // Clean URL
+        if (code || hash) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        // Confirm session exists
+        const { data } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (data.session) {
+          setReady(true);
+          setVerifying(false);
+        } else {
+          // Wait briefly for onAuthStateChange to fire
+          setTimeout(() => {
+            if (!mounted) return;
+            setVerifying(false);
+            if (!ready) {
+              setErrorMsg('Could not verify reset link. Please request a new password reset email.');
+            }
+          }, 1500);
+        }
+      } catch (e: any) {
+        if (!mounted) return;
+        setVerifying(false);
+        setErrorMsg(e.message || 'Reset link is invalid or has expired.');
+      }
+    })();
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,18 +109,23 @@ const ResetPassword: React.FC = () => {
         <div className="box-content">
           <form onSubmit={handleSubmit} className="auth-form">
             <h2 style={{ color: '#fff', textAlign: 'center', marginBottom: '12px' }}>Reset Password</h2>
-            <input type="password" placeholder="New password (min 6 chars)" value={password}
-              onChange={(e) => setPassword(e.target.value)} required minLength={6} className="login-input" />
-            <input type="password" placeholder="Confirm new password" value={confirm}
-              onChange={(e) => setConfirm(e.target.value)} required minLength={6} className="login-input" />
-            <button type="submit" disabled={loading} className="login-btn login-btn-primary">
-              {loading ? 'Updating...' : !ready ? 'Preparing...' : 'Update Password'}
-            </button>
-            {!ready && (
-              <p style={{ color: '#fff', textAlign: 'center', fontSize: '12px', marginTop: '8px', opacity: 0.8 }}>
-                Verifying reset link... you can start typing your new password.
-              </p>
+
+            {errorMsg && (
+              <div style={{ color: '#ffb4b4', background: 'rgba(255,0,0,0.1)', padding: '10px', borderRadius: '8px', fontSize: '13px', marginBottom: '8px', textAlign: 'center' }}>
+                {errorMsg}
+                <button type="button" onClick={() => navigate('/')} style={{ display: 'block', margin: '8px auto 0', background: 'transparent', color: '#fff', textDecoration: 'underline', border: 'none', cursor: 'pointer' }}>
+                  Back to login
+                </button>
+              </div>
             )}
+
+            <input type="password" placeholder="New password (min 6 chars)" value={password}
+              onChange={(e) => setPassword(e.target.value)} required minLength={6} className="login-input" disabled={!ready} />
+            <input type="password" placeholder="Confirm new password" value={confirm}
+              onChange={(e) => setConfirm(e.target.value)} required minLength={6} className="login-input" disabled={!ready} />
+            <button type="submit" disabled={loading || !ready} className="login-btn login-btn-primary">
+              {loading ? 'Updating...' : verifying ? 'Verifying link...' : ready ? 'Update Password' : 'Link invalid'}
+            </button>
           </form>
         </div>
       </div>
