@@ -73,6 +73,17 @@ const ResetPassword: React.FC = () => {
           setReady(true);
           setVerifying(false);
         } else {
+          setTimeout(() => {
+            if (!mounted) return;
+            setVerifying(false);
+            setReady((r) => {
+              if (!r) setErrorMsg('Could not verify reset link. Please request a new password reset email.');
+              return r;
+            });
+          }, 1500);
+        }
+
+        } else {
           // Wait briefly for onAuthStateChange to fire
           setTimeout(() => {
             if (!mounted) return;
