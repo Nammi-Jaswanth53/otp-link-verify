@@ -18,7 +18,7 @@ const ResetPassword: React.FC = () => {
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
-      if (session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')) {
+      if (event === 'PASSWORD_RECOVERY' && session) {
         setReady(true);
         setVerifying(false);
         setErrorMsg(null);
@@ -31,14 +31,23 @@ const ResetPassword: React.FC = () => {
         const hash = window.location.hash || '';
         const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
 
-        // 1) PKCE flow: ?code=...
         const code = url.searchParams.get('code');
+        const hasImplicit = hashParams.get('access_token') && hashParams.get('refresh_token');
+        const hasRecovery = code || hasImplicit;
+
+        // Sign out any existing session so the recovery session takes over cleanly.
+        // Without this, an already-logged-in user hits "reauthentication required" on updateUser.
+        if (hasRecovery) {
+          await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+        }
+
+        // 1) PKCE flow: ?code=...
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
           if (error) throw error;
         }
         // 2) Implicit flow: #access_token=...&refresh_token=...
-        else if (hashParams.get('access_token') && hashParams.get('refresh_token')) {
+        else if (hasImplicit) {
           const { error } = await supabase.auth.setSession({
             access_token: hashParams.get('access_token')!,
             refresh_token: hashParams.get('refresh_token')!,
@@ -50,6 +59,7 @@ const ResetPassword: React.FC = () => {
           const desc = hashParams.get('error_description') || url.searchParams.get('error_description') || 'Reset link is invalid or has expired.';
           throw new Error(decodeURIComponent(desc.replace(/\+/g, ' ')));
         }
+
 
         // Clean URL
         if (code || hash) {
@@ -63,15 +73,17 @@ const ResetPassword: React.FC = () => {
           setReady(true);
           setVerifying(false);
         } else {
-          // Wait briefly for onAuthStateChange to fire
           setTimeout(() => {
             if (!mounted) return;
             setVerifying(false);
-            if (!ready) {
-              setErrorMsg('Could not verify reset link. Please request a new password reset email.');
-            }
+            setReady((r) => {
+              if (!r) setErrorMsg('Could not verify reset link. Please request a new password reset email.');
+              return r;
+            });
           }, 1500);
         }
+
+
       } catch (e: any) {
         if (!mounted) return;
         setVerifying(false);
